@@ -4,7 +4,7 @@ public class Record {
 	public String tconst;
 	public float avgRating;
 	public int numVotes;
-	
+
 	public Record(String tconst, float avgRating, int numVotes) {
 		this.tconst = tconst;
 		this.avgRating = avgRating;
@@ -40,9 +40,10 @@ public class Record {
 	 * - tconst is fixed with 10 chars -> 10B
 	 * - avgRating is float -> 4B
 	 * - numVote is int -> 4B
+	 * 
 	 * @return size of record
 	 */
-	public static int size(){
+	public static int size() {
 		return 18;
 	}
 
@@ -50,6 +51,4 @@ public class Record {
 	public String toString() {
 		return "{" + tconst + "; " + avgRating + "; " + numVotes + "}";
 	}
-}{
-    
 }
