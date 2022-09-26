@@ -27,9 +27,9 @@ public abstract class Node {
     }
 
     // set whether it is a leaf
-    public void setIsLeaf(boolean leafiness) {
+    public void setLeaf(boolean isALeaf) {
 
-        isLeaf = leafiness;
+        isLeaf = true;
     }
 
     // get whether it is root
@@ -39,9 +39,9 @@ public abstract class Node {
     }
 
     // set whether it is root
-    public void setIsRoot(boolean rootiness) {
+    public void setIsRoot(boolean isARoot) {
 
-        isRoot = rootiness;
+        isRoot = isARoot;
     }
 
     // get node's parent
@@ -58,7 +58,6 @@ public abstract class Node {
 
     // get arraylist of all keys
     public ArrayList<Integer> getKeys() {
-
         return keys;
     }
 

@@ -75,7 +75,7 @@ public class ParentNode extends Node {
     }
 
     // prepare parentnode for splitting
-    public void splitPrep() {
+    public void preSplit() {
 
         deleteKeys();
         children = new ArrayList<Node>();

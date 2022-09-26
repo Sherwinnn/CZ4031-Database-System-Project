@@ -1,83 +1,62 @@
 package app.index;
 
-
 import app.storage.Address;
 import app.util.Log;
 import java.util.ArrayList;
 
 public class BPlusTree {
     private static final String TAG = "B+Tree";
-    private static final int SIZE_POINTER = 6; // for 64 bits system; RAM use 64bit for addressing -> 2^6 = 6B
-    private static final int SIZE_KEY = 4; // for int value
-    int maxKeys;
+    private static final int SIZE_POINTER = 6; //for 64 bits system
+    private static final int SIZE_KEY = 4; //for int
+    int n;
     int parentMinKeys;
     int leafMinKeys;
     Node root;
     int height;
-    int nodeCount;
-    int deletedCount;
+    int noOfNode;
+    int nodeDeleted;
 
     public BPlusTree(int blockSize){
-        // TODO: calculate n (max number of keys)?
-        // n keys + n+1 pointer
-        maxKeys = (blockSize-SIZE_POINTER) / (SIZE_KEY+SIZE_POINTER); // n
-        parentMinKeys = (int) Math.floor(maxKeys/2);
-        leafMinKeys = (int) Math.floor((maxKeys+1)/2);
-        Log.i(TAG, "init: blockSize = "+blockSize+", maxKeys = "+maxKeys);
-        Log.i(TAG, "MinKeys: parent="+parentMinKeys+", leaf="+leafMinKeys);
-        root = createFirst();
-        nodeCount = 0;
-        deletedCount = 0;
-    }
+        n = (blockSize-SIZE_POINTER) / (SIZE_KEY+SIZE_POINTER);
+        leafMinKeys = (int) Math.floor((n+1)/2);
+        parentMinKeys = (int) Math.floor(n/2);
+        noOfNode = 0;
+        nodeDeleted = 0;
 
-    // to create first node
-    public LeafNode createFirst() {
-
-        LeafNode newRoot = new LeafNode();
-        newRoot.setIsRoot(true);
+        root = new LeafNode();
+        root.setIsRoot(true);
         height = 1;
-        nodeCount = 1;
-        return newRoot;
+
+        Log.i(TAG, "initialization: blockSize = " + blockSize + ", maximum number of keys = " + n);
+        Log.i(TAG, "minimum number of keys: parent = " + parentMinKeys+ ", leaf = " + leafMinKeys);
     }
 
-    // to insert a record into the tree
-    public void insert(int key, Address address) {
-
-        this.insertToLeaf(this.searchLeaf(key), key, address);
-    }
-
-    // to search for the right leafnode for record insertion
-    public LeafNode searchLeaf(int key) {
-
-        // if root is a leaf, return root
+    //to find where to insert
+    public LeafNode findLeaf(int key) {
         if (this.root.getIsLeaf())
             return (LeafNode) root;
 
-        ParentNode parent = (ParentNode) root;
         ArrayList<Integer> keys;
+        ParentNode parent = (ParentNode) root;
 
-        // finding correct first level parent
+        //keep searching and stop before leaf node to find parent
         while (!parent.getChild(0).getIsLeaf()) {
-
             keys = parent.getKeys();
-            
-            for (int i = keys.size() -1; i >= 0; i--) {
 
+            //start from the back
+            for (int i = keys.size()-1; i >= 0; i--) {
                 if (keys.get(i) <= key) {
-
                     parent = (ParentNode) parent.getChild(i+1);
                     break;
                 }
-
                 else if (i == 0)
                     parent = (ParentNode) parent.getChild(0);
             }
         }
 
-        // finding correct leaf
+        //find the key itself
         keys = parent.getKeys();
-        for (int i = keys.size() -1; i >= 0; i--) {
-
+        for (int i = keys.size()-1; i >= 0; i--) {
             if (keys.get(i) <= key)
                 return (LeafNode) parent.getChild(i+1);
         }
@@ -85,154 +64,138 @@ public class BPlusTree {
         return (LeafNode) parent.getChild(0);
     }
 
-    // to insert record into leafnode
-    public void insertToLeaf(LeafNode leaf, int key, Address address) {
+    // to insert a record into the tree
+    public void insert(int key, Address address) {
+        //to find where to insert to
+        LeafNode found = this.findLeaf(key);
 
-        if (leaf.getKeys().size() < maxKeys) 
-            leaf.addRecord(key, address);
-
+        if (found.getKeys().size() < n) 
+            found.addRecord(key, address);
+        //exceed n, need to split
         else {
-
-            splitLeaf(leaf, key, address);
-        }
-    }
-
-    //to split a full leafnode
-    public void splitLeaf(LeafNode old,int key, Address address) {
-
-        int keys[] = new int[maxKeys+1];
-        Address addresses[] = new Address[maxKeys+1];
-        LeafNode leaf2 = new LeafNode();
-        int i;
-
-        //getting full and sorted lists of keys and addresses
-        for (i = 0; i < maxKeys; i++) {
-
-            keys[i] = old.getKey(i);
-            addresses[i] = old.getRecord(i);
-        }
-
-        for (i = maxKeys-1; i >= 0; i--) {
-            
-            if (keys[i] <= key) {
-
-                i++;
-                keys[i] = key;
-                addresses[i] = address;
-                break;
+            int keys[] = new int[n+1];
+            Address addresses[] = new Address[n+1];
+            LeafNode newLeaf = new LeafNode();
+    
+            //getting full list
+            for (int i = 0; i < n; i++) {
+                keys[i] = found.getKey(i);
+                addresses[i] = found.getRecord(i);
             }
-
-            keys[i+1] = keys[i];
-            addresses[i+1] = addresses[i];
-        } 
-
-        //clearing old leafnode values
-        old.splitPrep();
-
-        //putting the keys and addresses into the two leafnodes
-        for (i = 0; i < leafMinKeys; i++) 
-            old.addRecord(keys[i], addresses[i]);
-
-        for (i = leafMinKeys; i < maxKeys+1; i++) 
-            leaf2.addRecord(keys[i], addresses[i]);
-
-        //setting old leafnode to point to new leafnode and new leafnode to point to next leafnode
-        leaf2.setNext(old.getNext());
-        old.setNext(leaf2);
-
-        //setting parents for new leafnode
-        if (old.getIsRoot()) {
-
-            ParentNode newRoot = new ParentNode();
-            old.setIsRoot(false);
-            newRoot.setIsRoot(true);
-            newRoot.addChild(old);
-            newRoot.addChild(leaf2);
-            root = newRoot;
-            height++;
+        
+            // sort
+            for (int i = n-1; i >= 0; i--) {
+                 if (keys[i] <= key) {
+                    i++;
+                    keys[i] = key;
+                     addresses[i] = address;
+                     break;
+                }
+                keys[i+1] = keys[i];
+                addresses[i+1] = addresses[i];
+            } 
+    
+            //clearing found leafnode values
+            found.preSplit();
+    
+            //putting the keys and addresses into the two leafnodes
+            for (int i = 0; i < leafMinKeys; i++) 
+                found.addRecord(keys[i], addresses[i]);
+    
+            for (int i = leafMinKeys; i < n+1; i++) 
+                newLeaf.addRecord(keys[i], addresses[i]);
+    
+            //setting found leafnode to point to new leafnode and new leafnode to point to next leafnode
+            newLeaf.setNext(found.getNext());
+            found.setNext(newLeaf);
+    
+            //setting parents for new leafnode
+            if (found.getIsRoot()) {
+                found.setIsRoot(false);
+                
+                ParentNode newRoot = new ParentNode();
+                newRoot.addChild(found);
+                newRoot.setIsRoot(true);
+                newRoot.addChild(newLeaf);
+                root = newRoot;
+                
+                height++;
+            }
+            else if (found.getParent().getKeys().size() < n)
+                found.getParent().addChild(newLeaf);
+            else 
+                splitParent(found.getParent(), newLeaf);
+    
+            // updating noOfNode
+            noOfNode++;
         }
-
-        else if (old.getParent().getKeys().size() < maxKeys)
-            old.getParent().addChild(leaf2);
-
-        else 
-            splitParent(old.getParent(), leaf2);
-
-        // updating nodeCount
-        nodeCount++;
     }
 
     //to split a full parent node
     public void splitParent(ParentNode parent, Node child) {
-
-        Node children[] = new Node[maxKeys+2];
-        int keys[] = new int[maxKeys+2];
+        Node children[] = new Node[n+2];
+        int keys[] = new int[n+2];
         int key = child.findSmallestKey();
-        ParentNode parent2 = new ParentNode();
+        ParentNode newParent = new ParentNode();
 
         // getting full and sorted lists of keys and children
-        for (int i = 0; i < maxKeys+1; i++)  {
-
+        for (int i = 0; i < n+1; i++)  {
             children[i] = parent.getChild(i);
             keys[i] = children[i].findSmallestKey();
         }
         
-        for (int i = maxKeys; i >= 0; i--) {
-
+        for (int i = n; i >= 0; i--) {
             if (keys[i] <= key) {
-
                 i++;
                 keys[i] = key;
                 children[i] = child;
                 break;
             }
-
             keys[i+1] = keys[i];
             children[i+1] = children[i];
         }
 
         //clearing old parent values
-        parent.splitPrep();
+        parent.preSplit();
 
         // putting the children into the two parentnodes
         for (int i = 0; i < parentMinKeys+2; i++) 
             parent.addChild(children[i]);
 
-        for (int i = parentMinKeys+2; i < maxKeys+2; i++) 
-            parent2.addChild(children[i]);
+        for (int i = parentMinKeys+2; i < n+2; i++) 
+            newParent.addChild(children[i]);
 
         //setting parent for the new parentnode
         if (parent.getIsRoot()) {
-
             ParentNode newRoot = new ParentNode();
-            parent.setIsRoot(false);
             newRoot.setIsRoot(true);
             newRoot.addChild(parent);
-            newRoot.addChild(parent2);
+            newRoot.addChild(newParent);
             root = newRoot;
+
+            parent.setIsRoot(false);
+
             height++;
         }
-
-        else if (parent.getParent().getKeys().size() < maxKeys)
-            parent.getParent().addChild(parent2);
-
+        else if (parent.getParent().getKeys().size() < n)
+            parent.getParent().addChild(newParent);
         else 
-            splitParent(parent.getParent(), parent2);
+            splitParent(parent.getParent(), newParent);
 
-        // updating nodeCount
-        nodeCount++;
+        // updating noOfNode
+        noOfNode++;
     }
 
+    // used in main
     // to delete all records of a certain key
     public void deleteKey(int key) {
-
         ArrayList<Integer> keys;
         LeafNode leaf;
 
         // while there are still records with given key value
-        while (getRecordsWithKey(key, false).size() != 0) {
+        while (findRecordsWithKey(key).size() != 0) {
 
-            leaf = searchLeaf(key);
+            leaf = findLeaf(key);
             keys = leaf.getKeys();
             
             // delete one record and update tree 
@@ -251,47 +214,87 @@ public class BPlusTree {
             }
         }
 
-        Log.d("deletion", "number of nodes deleted = " + deletedCount);
-        nodeCount -= deletedCount;
+        Log.d("deletion", "number of nodes deleted = " + nodeDeleted);
+        noOfNode -= nodeDeleted;
         treeStats();
+    }
+
+    public ArrayList<Address> findRecordsWithKey(int key) {
+        ArrayList<Address> result = new ArrayList<>();
+        Node curr = root;
+        ParentNode parent;
+        // searching for leaf node with key
+        while (!curr.getIsLeaf()){
+            parent = (ParentNode) curr;
+            for (int i=0; i<parent.getKeys().size(); i++) {
+                if ( key <= parent.getKey(i)){
+                    curr = parent.getChild(i);
+                    break;
+                }
+                if (i == parent.getKeys().size()-1){
+                    curr = parent.getChild(i+1);
+                    break;
+                }
+            }
+        }
+        // after leaf node is found, find all records with same key
+        LeafNode curLeaf = (LeafNode) curr;
+        boolean done = false;
+        while(!done && curLeaf != null){
+            // finding same keys within leaf node
+            for (int i=0; i<curLeaf.getKeys().size(); i++){
+                // found same key, add into result list
+                if (curLeaf.getKey(i) == key){
+                    result.add(curLeaf.getRecord(i));
+                    continue;
+                }
+                // if curKey > searching key, no need to continue searching
+                if (curLeaf.getKey(i) > key){
+                    done = true;
+                    break;
+                }
+            }
+            if (!done){
+                // trying to check sibling node has remaining records of same key
+                if (curLeaf.getNext()!= null){
+                    curLeaf = curLeaf.getNext();
+                } else {
+                    break;
+                }
+            }
+        }
+        return result;
     }
 
     // to update leafnode
     public void resetLeaf(LeafNode node) {
-
-        // if no need to change node, reset parent and finish
-        if (node.getKeys().size() >= leafMinKeys) {
-
-            resetParent(node.getParent());
-            return;
-        }
         
+        int needed = leafMinKeys - node.getKeys().size();
         LeafNode before = (LeafNode) node.getParent().getBefore(node);
         LeafNode after = (LeafNode) node.getParent().getAfter(node);
-        int needed = leafMinKeys - node.getKeys().size();
-        int bSpare = 0;
-        int aSpare = 0;
+        int b = 0;
+        int a = 0;
         ParentNode copy;
 
         // getting number of keys that before and after nodes can spare
         if (before != null) 
-            bSpare += before.getKeys().size() - leafMinKeys;
+            b += before.getKeys().size() - leafMinKeys;
 
         if (after != null) 
-            aSpare += after.getKeys().size() - leafMinKeys;
+            a += after.getKeys().size() - leafMinKeys;
 
         // if need to merge
-        if (needed > aSpare + bSpare) {
+        if (needed > a + b) {
 
             // if node has both before and after nodes
             if (before != null && after != null) {
 
                 // insert as many records as possible into before node
-                for (int i = 0; i < maxKeys-(bSpare+leafMinKeys); i++) 
+                for (int i = 0; i < n-(b+leafMinKeys); i++) 
                     before.addRecord(node.getKey(i), node.getRecord(i));
                 
                 // insert the rest into after node
-                for (int i = maxKeys-(bSpare+leafMinKeys); i < node.getKeys().size(); i++) 
+                for (int i = n-(b+leafMinKeys); i < node.getKeys().size(); i++) 
                     after.addRecord(node.getKey(i), node.getRecord(i));
             }
 
@@ -316,7 +319,7 @@ public class BPlusTree {
             if (before == null) {
 
                 if (!copy.getIsRoot())
-                    before = searchLeaf(copy.findSmallestKey()-1);
+                    before = findLeaf(copy.findSmallestKey()-1);
             }
 
             // change before to point to after
@@ -324,7 +327,7 @@ public class BPlusTree {
 
             // delete node
             node.deleteNode();
-            deletedCount++;
+            nodeDeleted++;
         }
 
         // if able to borrow keys
@@ -333,14 +336,14 @@ public class BPlusTree {
             if (before != null && after != null) {
 
                 // take the last few keys from before node that can be spared
-                for (int i = 0; i < bSpare; i++) {
+                for (int i = 0; i < b; i++) {
 
                     node.addRecord(before.getKey(before.getKeys().size()-1 -i), before.getRecord(before.getKeys().size()-1 -i));
                     before.deleteRecord(before.getKeys().size()-1 -i);
                 }
                 
                 // take the rest from after node
-                for (int i = bSpare, j = 0; i < needed; i++, j++) {
+                for (int i = b, j = 0; i < needed; i++, j++) {
 
                     node.addRecord(after.getKey(j), after.getRecord(j));
                     after.deleteRecord(j);
@@ -395,7 +398,7 @@ public class BPlusTree {
                 parent.getChild(0).setIsRoot(true);
                 root = parent.getChild(0);
                 parent.deleteNode();
-                deletedCount++;
+                nodeDeleted++;
                 height--;
                 return;
             }
@@ -404,28 +407,28 @@ public class BPlusTree {
         ParentNode before = (ParentNode) parent.getParent().getBefore(parent);
         ParentNode after = (ParentNode) parent.getParent().getAfter(parent);
         int needed = parentMinKeys - parent.getKeys().size();
-        int bSpare = 0;
-        int aSpare = 0;
+        int b = 0;
+        int a = 0;
         ParentNode copy;
 
         if (before != null) 
-            bSpare += before.getKeys().size() - parentMinKeys;
+            b += before.getKeys().size() - parentMinKeys;
 
         if (after != null) 
-            aSpare += after.getKeys().size() - parentMinKeys;
+            a += after.getKeys().size() - parentMinKeys;
 
         // if need to merge
-        if (needed > aSpare + bSpare) {
+        if (needed > a + b) {
 
             // if node has both before and after nodes
             if (before != null && after != null) {
 
                 // insert as many records as possible into before node
-                for (int i = 0; i < maxKeys-(bSpare+parentMinKeys)+1 && i < parent.getChildren().size(); i++) 
+                for (int i = 0; i < n-(b+parentMinKeys)+1 && i < parent.getChildren().size(); i++) 
                     before.addChild(parent.getChild(i));
                 
                 // insert the rest into after node
-                for (int i = maxKeys-(bSpare+parentMinKeys)+1; i < parent.getChildren().size(); i++) 
+                for (int i = n-(b+parentMinKeys)+1; i < parent.getChildren().size(); i++) 
                     after.addChild(parent.getChild(i));
             }
 
@@ -446,23 +449,22 @@ public class BPlusTree {
             // delete after merging
             copy = parent.getParent();
             parent.deleteNode();
-            deletedCount++;
+            nodeDeleted++;
         }
 
         // if able to borrow keys
         else {
-
             if (before != null && after != null) {
 
                 // take the last few keys from before node that can be spared
-                for (int i = 0; i < bSpare && i < needed; i++) {
+                for (int i = 0; i < b && i < needed; i++) {
 
                     parent.addChild(before.getChild(before.getChildren().size()-1), 0);
                     before.deleteChild(before.getChild(before.getChildren().size()-1));
                 }
                 
                 // take the rest from after node
-                for (int i = bSpare; i < needed; i++) {
+                for (int i = b; i < needed; i++) {
 
                     parent.addChild(after.getChild(0));
                     after.deleteChild(after.getChild(0));
@@ -495,50 +497,35 @@ public class BPlusTree {
         resetParent(copy);
     }
 
-
-    // TODO for Experiment 2 (partially done)
-
-
-    // TODO for Experiment 3
-    public  ArrayList<Address> getRecordsWithKey(int key){
-        return getRecordsWithKey(key, true);
-    }
-
-    public ArrayList<Address> getRecordsWithKey(int key, boolean isVerbose){
+    public ArrayList<Address> getRecordsWithKey(int key){
         ArrayList<Address> result = new ArrayList<>();
         int blockAccess = 1; // access the root??
         int siblingAccess = 0;
-        if (isVerbose){
-            Log.d("B+Tree.keySearch","[Node Access] Access root node");
-        }
-        Node curNode = root;
+        Log.d("B+Tree.keySearch","[Node Access] Access root node");
+        Node curr = root;
         ParentNode parentNode;
         // searching for leaf node with key
-        while (!curNode.getIsLeaf()){
-            parentNode = (ParentNode) curNode;
+        while (!curr.getIsLeaf()){
+            parentNode = (ParentNode) curr;
             for (int i=0; i<parentNode.getKeys().size(); i++) {
                 if ( key <= parentNode.getKey(i)){
-                    if (isVerbose){
-                        Log.v("B+Tree.keySearch", curNode.toString());
-                        Log.d("B+Tree.keySearch",String.format("[Node Access] follow pointer [%d]: key(%d)<=curKey(%d)", i, key, parentNode.getKey(i) ));
-                    }
-                    curNode = parentNode.getChild(i);
+                    Log.v("B+Tree.keySearch", curr.toString());
+                    Log.d("B+Tree.keySearch",String.format("[Node Access] follow pointer [%d]: key(%d)<=curKey(%d)", i, key, parentNode.getKey(i) ));
+                    curr = parentNode.getChild(i);
                     blockAccess++;
                     break;
                 }
                 if (i == parentNode.getKeys().size()-1){
-                    if (isVerbose){
-                        Log.v("B+Tree.keySearch", curNode.toString());
-                        Log.d("B+Tree.keySearch",String.format("[Node Access] follow pointer [%d+1]: last key and key(%d)>curKey(%d)", i, key, parentNode.getKey(i) ));
-                    }
-                    curNode = parentNode.getChild(i+1);
+                    Log.v("B+Tree.keySearch", curr.toString());
+                    Log.d("B+Tree.keySearch",String.format("[Node Access] follow pointer [%d+1]: last key and key(%d)>curKey(%d)", i, key, parentNode.getKey(i) ));
+                    curr = parentNode.getChild(i+1);
                     blockAccess++;
                     break;
                 }
             }
         }
         // after leaf node is found, find all records with same key
-        LeafNode curLeaf = (LeafNode) curNode;
+        LeafNode curLeaf = (LeafNode) curr;
         boolean done = false;
         while(!done && curLeaf!=null){
             // finding same keys within leaf node
@@ -567,16 +554,15 @@ public class BPlusTree {
         }
 
         if (siblingAccess > 0){
-            if (isVerbose) {
-                Log.d("B+Tree.keySearch", "[Node Access] " + siblingAccess + " sibling node access");
-            }
+            Log.d("B+Tree.keySearch", "[Node Access] " + siblingAccess + " sibling node access");
         }
-        if (isVerbose) {
-            Log.i("B+Tree.keySearch", String.format("input(%d): %d records found with %d node access", key, result.size(), blockAccess));
-        }
+    
+        Log.i("B+Tree.keySearch", String.format("input(%d): %d records found with %d node access", key, result.size(), blockAccess));
+
         return result;
     }
 
+    // used in main
     public void treeStats() {
 
         ArrayList<Integer> rootKeys = new ArrayList<Integer>();
@@ -594,15 +580,18 @@ public class BPlusTree {
             firstKeys.add(first.getKey(i));
         }
 
-        Log.d("treeStats", "n = " + maxKeys + ", number of nodes = " + nodeCount + ", height = " + height);
+        Log.d("treeStats", "n = " + n + ", number of nodes = " + noOfNode + ", height = " + height);
         Log.d("rootContents", "root node contents = " + rootKeys);
         Log.d("firstContents", "first child contents = " + firstKeys);
     }
 
+    // used in main
     // TODO for Experiment 4
     public ArrayList<Address> getRecordsWithKeyInRange(int min, int max) {
         return getRecordsWithKeyInRange(min, max, true);
     }
+
+    // changed: curNode to curr
     public ArrayList<Address> getRecordsWithKeyInRange(int min, int max, boolean isVerbose){
         ArrayList<Address> result = new ArrayList<>();
         int nodeAccess = 1; // access the root??
@@ -610,34 +599,34 @@ public class BPlusTree {
         if (isVerbose) {
             Log.d("B+Tree.rangeSearch", "[Node Access] Access root node");
         }
-        Node curNode = root;
+        Node curr = root;
         ParentNode parentNode;
         // searching for leaf node with key
-        while (!curNode.getIsLeaf()){
-            parentNode = (ParentNode) curNode;
+        while (!curr.getIsLeaf()){
+            parentNode = (ParentNode) curr;
             for (int i=0; i<parentNode.getKeys().size(); i++) {
                 if ( min <= parentNode.getKey(i)){
                     if (isVerbose) {
-                        Log.v("B+Tree.rangeSearch", curNode.toString());
+                        Log.v("B+Tree.rangeSearch", curr.toString());
                         Log.d("B+Tree.rangeSearch", String.format("[Node Access] follow pointer [%d]: min(%d)<=curKey(%d)", i, min, parentNode.getKey(i)));
                     }
-                    curNode = parentNode.getChild(i);
+                    curr = parentNode.getChild(i);
                     nodeAccess++;
                     break;
                 }
                 if (i == parentNode.getKeys().size()-1){
                     if (isVerbose) {
-                        Log.v("B+Tree.rangeSearch", curNode.toString());
+                        Log.v("B+Tree.rangeSearch", curr.toString());
                         Log.d("B+Tree.rangeSearch", String.format("[Node Access] follow pointer [%d+1]: last key and min(%d)>curKey(%d)", i, min, parentNode.getKey(i)));
                     }
-                    curNode = parentNode.getChild(i+1);
+                    curr = parentNode.getChild(i+1);
                     nodeAccess++;
                     break;
                 }
             }
         }
         // after leaf node is found, find all records with same key
-        LeafNode curLeaf = (LeafNode) curNode;
+        LeafNode curLeaf = (LeafNode) curr;
         boolean done = false;
         while(!done && curLeaf!=null){
             // finding same keys within leaf node
@@ -681,8 +670,6 @@ public class BPlusTree {
         return null;
     }
 
-
-
     public void logStructure(){
         logStructure(0, Integer.MAX_VALUE, root);
     }
@@ -691,23 +678,32 @@ public class BPlusTree {
         logStructure(0, maxLevel, root);
     }
 
+    // changed: curNode to curr
     // recursive logging of tree structure
-    private void logStructure(int level, int maxLevel,  Node curNode){
-        if (curNode == null){
-            curNode = root;
+    private void logStructure(int level, int maxLevel,  Node curr){
+        if (curr == null){
+            curr = root;
         }
         if (level > maxLevel){
             return;
         }
 
         System.out.print("h="+level+"; ");
-        curNode.logStructure();
-        if (curNode.getIsLeaf()){
+        curr.logStructure();
+        if (curr.getIsLeaf()){
             return;
         }
-        ParentNode parentNode = (ParentNode) curNode;
+        ParentNode parentNode = (ParentNode) curr;
         for (Node child: parentNode.getChildren()) {
             logStructure(level+1, maxLevel, child);
         }
     }
 }
+
+/* changes made:
+ * added found var to insert
+ * leaf2 to newLeaf in split
+ * curNode to curr for all functions
+ * nodeCount to noOfNode
+ * deletedCount to nodeDeleted
+ */
