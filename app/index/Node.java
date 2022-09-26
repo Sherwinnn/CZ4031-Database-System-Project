@@ -1,9 +1,7 @@
 package app.index;
 
-
 import java.util.ArrayList;
 
-//  n = 4
 public abstract class Node {
     
     private ArrayList<Integer> keys;
@@ -11,8 +9,6 @@ public abstract class Node {
     private boolean isLeaf;
     private boolean isRoot;
 
-
-    // constructor
     public Node() {
 
         keys = new ArrayList<Integer>();

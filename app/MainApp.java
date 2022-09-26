@@ -38,7 +38,6 @@ public class MainApp implements Constants {
 
 		index.treeStats();
 
-		// TODO do experiences
 		pause("Press any key to start experience 3");
 		doExperience3();
 		pause("Press any key to start experience 4");
