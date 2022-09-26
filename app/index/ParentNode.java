@@ -101,7 +101,7 @@ public class ParentNode extends Node {
     }
 
     // get the child before
-    public Node getBefore(Node node) {
+    public Node getPrev(Node node) {
 
         if (children.indexOf(node) != 0)
             return children.get(children.indexOf(node)-1);
