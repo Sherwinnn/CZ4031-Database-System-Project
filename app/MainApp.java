@@ -16,20 +16,24 @@ public class MainApp implements Constants {
 	private Disk disk;
 	private BPlusTree index;
 
-
-	public void run(int blockSize) throws Exception {
+	/**
+	 * 
+	 * @param bSize
+	 * @throws Exception
+	 */
+	public void run(int bSize) throws Exception {
 		// read records from data file
 		List<Record> records = Utility.readRecord(DATA_FILE_PATH);
 
-		disk = new Disk(Constants.DISK_SIZE, blockSize);
-		index = new BPlusTree(blockSize);
+		disk = new Disk(Constants.DISK_SIZE, bSize);
+		index = new BPlusTree(bSize);
 
-		Log.i(TAG,"Running program with block size of "+blockSize);
+		Log.i(TAG,"Running program with block size of "+ bSize);
 		Log.i(TAG,"Prepare to insert records into storage and create index");
 		Address recordAddr;
 		for (Record r: records) {
 			// inserting records into disk and create index!
-			recordAddr = disk.appendRecord(r);
+			recordAddr = disk.pushRecord(r);
 			index.insert( r.getNumVotes(), recordAddr);
 		}
 		Log.i(TAG,"Record inserted into storage and index created");
@@ -113,7 +117,7 @@ public class MainApp implements Constants {
 			input = getOptions(menu, true);
 			switch (input) {
 				case "1":
-					run(BLOCK_SIZE_100);
+					run(BLOCK_SIZE_200);
 					pause();
 					break;
 				case "2" :

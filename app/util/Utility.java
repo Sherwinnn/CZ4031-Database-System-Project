@@ -17,43 +17,37 @@ public class Utility {
 
 	/**
 	 * Loading and parsing the records from .tsv file
-	 * @param path path to data file
+	 * @param path to data file
 	 * @return list of records
 	 * @throws Exception
 	 */
-	public static List<Record> readRecord(String path) throws Exception {
-		File dataFile = new File(path);
-		Log.i(TAG, "Loading records from "+path);
+	public static List<Record> readRecord(String filePath) throws Exception {
+		File dataFile = new File(filePath);
+		Log.i(TAG, "Loading records from "+filePath);
 		if (!dataFile.exists()) {
-			// file is not exist, try to add current directory and try again
-
-			dataFile = new File(Constants.PROJECT_DIRECTORY, path);
-			Log.i(TAG, "Failed, re-attempt to load record from "+dataFile.getAbsolutePath());
-			if (!dataFile.exists()){
-				throw new FileNotFoundException("File not exist");
-			}
+			throw new FileNotFoundException("File doesnt exist, check file path!");
 		}
-
-		BufferedReader br = null;
+		
+		// initialising a new arraylist of records
 		List<Record> records = new ArrayList<>();
 		String line;
 		String[] parts = null;
 		try {
-			br = new BufferedReader( new FileReader(dataFile));
+			BufferedReader TSVReader = new BufferedReader( new FileReader(dataFile));
 			// reading header first (to be skipped)
-			br.readLine();
-			while((line = br.readLine()) != null) {
+			TSVReader.readLine();
+			while((line = TSVReader.readLine()) != null) {
 				parts = line.split("\\t");
-				Record record = new Record(parts[0], Float.parseFloat(parts[1]), Integer.parseInt( parts[2]));
+				Record record = new Record(Float.parseFloat(parts[1]), Integer.parseInt(parts[2]), parts[0]);
 				records.add( record );
 				Analyzer.analysis(record);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
-			if (br != null) {
+			if (TSVReader != null) {
 				try {
-					br.close();
+					TSVReader.close();
 				}catch (IOException e) {
 					Log.e(e.getMessage());
 				}
@@ -84,7 +78,7 @@ public class Utility {
 		ArrayList<Record> records = new ArrayList<>();
 		for (int i = 0; i < num; i++) {
 			String tconst = String.format("tt%08d", i+1);
-			records.add( new Record(tconst, 0f, i+1));
+			records.add( new Record(0f, i+1, tconst));
 		}
 		return records;
 	}
@@ -93,7 +87,7 @@ public class Utility {
 		ArrayList<Record> records = new ArrayList<>();
 		for (int i = 0; i < num; i++) {
 			String tconst = String.format("tt%08d", i+1);
-			records.add( new Record(tconst, 0f, i/duplicates));
+			records.add( new Record(0f, i/duplicates, tconst));
 		}
 		return records;
 	}

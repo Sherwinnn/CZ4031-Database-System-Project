@@ -1,28 +1,50 @@
 package app.storage;
 
+/**
+ * this class represents the record's address
+ */
 public class Address {
-    int blockId;
-    int offset;
+    /**
+     * block id, which the record is stored in
+     */
+    private int bID;
 
-    public Address(int blockId, int offset){
-        this.blockId=blockId;
-        this.offset=offset;
+    /**
+     * record id
+     */
+    private int recID;
+
+    /**
+     * this defines a constructor for a record address
+     * @param bID
+     * @param id
+     */
+    public Address(int bID, int id){
+        this.bID=bID;
+        this.recID=id;
     }
 
-    public int getBlockId() {
-        return blockId;
+    /**
+     * setter and getter for block ID
+     * @return block id
+     */
+    public int getBID() {
+        return bID;
     }
 
-    public void setBlockId(int blockId) {
-        this.blockId = blockId;
+    public void setBID(int bID) {
+        this.bID = bID;
     }
 
-    public int getOffset() {
-        return offset;
+    /** setter and getter for record ID
+     * @return record id
+     */
+    public int getID() {
+        return recID;
     }
 
-    public void setOffset(int offset) {
-        this.offset = offset;
+    public void setID(int id) {
+        this.recID = id;
     }
 
     @Override

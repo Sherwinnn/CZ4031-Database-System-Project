@@ -2,10 +2,10 @@ package app;
 
 public interface Constants {
     int GROUP_NUM = 4;
-    int DISK_SIZE = 100*1000*1000;
-    int BLOCK_SIZE_100 = 100;
+    int DISK_SIZE = 200*1000*1000; // 200 MB
+    int BLOCK_SIZE_200 = 200;
     int BLOCK_SIZE_500 = 500;
-    String PROJECT_DIRECTORY = "Database";
+    String PROJECT_DIRECTORY = "Database"; //change this accordingly
     String DATA_FILE_PATH = "data.tsv";
     String DATA_TEST_FILE_PATH = "data_test.tsv";
     
