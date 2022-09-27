@@ -8,13 +8,8 @@ public class BPlusTree {
     private static final String TAG = "B+Tree";
     private static final int SIZE_POINTER = 6; //for 64 bits system
     private static final int SIZE_KEY = 4; //for int
-    int n;
-    int parentMinKeys;
-    int leafMinKeys;
+    int n, parentMinKeys,leafMinKeys, height, noOfNode, nodeDeleted;
     Node root;
-    int height;
-    int noOfNode;
-    int nodeDeleted;
 
     public BPlusTree(int blockSize){
         n = (blockSize-SIZE_POINTER) / (SIZE_KEY+SIZE_POINTER);
@@ -493,7 +488,7 @@ public class BPlusTree {
     }
 
 
-    //didn't change
+    //didn't change this function
     public void treeStats() {
 
         ArrayList<Integer> rootKeys = new ArrayList<Integer>();
@@ -631,10 +626,10 @@ public class BPlusTree {
     }
 }
 
-/* changes made:
- * added found var to insert
- * leaf2 to newLeaf in split
- * curNode to curr for all functions
- * nodeCount to noOfNode
- * deletedCount to nodeDeleted
+/* main changes:
+ * deleted createFirst, put the implementation into BPlusTree
+ * deleted insertLeafNode, put into implementation of insert
+ * split getRecordsWithKey to 1 getRecordsWithKey and 1 findRecordsWithKey
+ * move the first if statement (no need to cheng node) in resetLeaf to delete key insyead
+ * deleted splitLeaf, put into insert
  */
