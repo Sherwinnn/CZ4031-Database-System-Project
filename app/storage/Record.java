@@ -29,13 +29,13 @@ public class Record {
 	 */
 	public String tconst; 
 
-	/**
+	/*
 	 * define constructor for the record class 
-	 */
+	 
 	public Record(){
 		this.tconst = new char[10]; 
 		// every tconst has max 10 characters based on the data
-	}
+	} */
 
 	/**
 	 * define constructor for the record class

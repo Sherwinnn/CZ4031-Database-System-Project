@@ -82,13 +82,14 @@ public class Block {
         if (!isAvail()){
             throw new Exception("Insufficient space in block for record");
         }
+        int recordID = 0;
         // iterate through the block to check
         for (int i = 0; i < records.length ; i++) {
             if (records[i] == null ){
                 records[i] = rec;
-                int recordID = i;
+                recordID = i;
                 currentRec++; // update num of records in the block
-                break;
+                return recordID;
             }
         }
         return recordID;
@@ -113,11 +114,11 @@ public class Block {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("[");
-        for (int i=0; i< data.length; i++){
+        for (int i=0; i< records.length; i++){
             if (i>0){
                 sb.append(", ");
             }
-            sb.append(String.format("%d:{%s}", i, data[i].tconst ));
+            sb.append(String.format("%d:{%s}", i, records[i].tconst ));
         }
         sb.append("]");
         return sb.toString();

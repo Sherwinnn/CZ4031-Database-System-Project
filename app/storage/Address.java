@@ -49,6 +49,6 @@ public class Address {
 
     @Override
     public String toString() {
-        return String.format("@%d-%d", blockId, offset);
+        return String.format("@%d-%d", bID, recID);
     }
 }
