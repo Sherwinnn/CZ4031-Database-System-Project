@@ -32,8 +32,9 @@ public class Utility {
 		List<Record> records = new ArrayList<>();
 		String line;
 		String[] parts = null;
+		BufferedReader TSVReader = null;
 		try {
-			BufferedReader TSVReader = new BufferedReader( new FileReader(dataFile));
+			TSVReader = new BufferedReader( new FileReader(dataFile));
 			// reading header first (to be skipped)
 			TSVReader.readLine();
 			while((line = TSVReader.readLine()) != null) {

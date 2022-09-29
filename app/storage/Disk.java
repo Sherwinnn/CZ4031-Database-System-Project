@@ -23,10 +23,9 @@ public class Disk {
      * number of records = 0 at the start
      * calculate number of blocks that can be stored in a disk
      */
-    public Disk(int dSize, int bSize, int rSize){
+    public Disk(int dSize, int bSize){
         this.diskSize = dSize;
         this.blockSize = bSize;
-        this.recordSize = rSize;
         this.recordNum = 0;
         this.maxBlockNum = diskSize / blockSize; 
         this.blocks = new ArrayList<>();
@@ -84,7 +83,7 @@ public class Disk {
             // disk has additional space, create new block
             targetBlk = new Block(blockSize);
             blocks.add(targetBlk);
-            blkID = getLastBlockId();
+            blkID = getLastBlockAddress();
         }
         // add record to target block
         int recID = targetBlk.addRecord(rec);
@@ -100,7 +99,7 @@ public class Disk {
      * @throws Exception
      */
     public Address addRecord(Record rec) throws Exception {
-        int blockId = getFirstAvailableBlockId();
+        int blockId = getFirstAvailBlockAddress();
         return addRecordTo(blockId, rec);
     }
 
@@ -113,7 +112,7 @@ public class Disk {
      * @throws Exception
      */
     public Address pushRecord(Record rec) throws Exception{
-        int blockId = getLastBlockId();
+        int blockId = getLastBlockAddress();
         return addRecordTo(blockId, rec);
     }
 
@@ -196,19 +195,19 @@ public class Disk {
         
         for (Address address: addresses) {
             // try search from cache first, before access from disk
-            tempBlock = cache.get(address.getBlockId());
+            tempBlock = cache.get(address.getBID());
             boolean cacheRead = tempBlock != null;
             if (tempBlock == null){
-                tempBlock = getBlockAt(address.getBlockId());
+                tempBlock = retrieveBlock(address.getBID());
 //                Log.v("Disk Access", String.format("Disk read: blockId=%d, offset=%d, block=%s", address.blockId, address.offset, tempBlock));
-                cache.put(address.getBlockId(), tempBlock);
+                cache.put(address.getBID(), tempBlock);
                 blockAccess++;
             } else {// accessing the block from cache, no block access
 //                Log.v("Disk Access", String.format("Cache read: blockId=%d, offset=%d, block=%s", address.blockId, address.offset, tempBlock));
             }
 
-            Record record = tempBlock.getRecordAt(address.getOffset());
-			Log.v("Disk Access", String.format("%s read: blockId=%4d, \toffset=%d, \trecord=%s", cacheRead?"Cache":"Disk", address.blockId, address.offset, record));
+            Record record = tempBlock.readRecord(address.getID());
+			Log.v("Disk Access", String.format("%s read: blockId=%4d, \toffset=%d, \trecord=%s", cacheRead?"Cache":"Disk", address.getBID(), address.getID(), record));
             retrievedRecords.add( record );
         }
         Log.i(TAG, String.format("Retrieved %d records with %d block access", retrievedRecords.size(), blockAccess));
@@ -247,9 +246,9 @@ public class Disk {
 
     // debugs only
     public void log(){
-        Log.d(TAG, String.format("disk size = %s / %s", Utility.formatFileSize(getUsedSize()), Utility.formatFileSize(diskSize) ));
+        Log.d(TAG, String.format("disk size = %s / %s", Utility.formatFileSize(getUsedDisk()), Utility.formatFileSize(diskSize) ));
         Log.d(TAG, String.format("block size = %s", Utility.formatFileSize(blockSize)));
-        Log.d(TAG, String.format("blocks = %,d / %,d", blocks.size(), maxBlockCount));
-        Log.d(TAG, String.format("records = %,d", recordCounts));
+        Log.d(TAG, String.format("blocks = %,d / %,d", blocks.size(), maxBlockNum));
+        Log.d(TAG, String.format("records = %,d", recordNum));
     }
 }

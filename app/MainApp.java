@@ -1,14 +1,14 @@
-package app;
 
+package app;
  
 import java.util.*;
 
-import app.storage.Address;
 import app.storage.Disk;
 import app.storage.Record;
-import app.index.BPlusTree;
 import app.util.Log;
 import app.util.Utility;
+import app.index.BPlusTree;
+import app.storage.Address;
 
 public class MainApp implements Constants {
 	private static final String TAG = "App";
@@ -107,7 +107,7 @@ public class MainApp implements Constants {
 
 	public void displayMainMenu() throws Exception {
 		String[] menu = {
-				"Experience with block size 100B",
+				"Experience with block size 200B",
 				"Experience with block size 500B",
 				"Log setting"
 		};
