@@ -59,48 +59,48 @@ public class MainApp implements Constants {
 
 	//Conduct Experiment 3 ->Records with NumVotes of 500
 	public void doExperiment3(){
-		System.out.println("Experiment 3 started, getting records with numVotes of 500");
+		System.out.println("To Do: Retrieve out movies with numvotes = 500.");
 		ArrayList<Address> RcdAddress = index.getRecordsWithKey(500);
 		ArrayList<Record> records = disk.getRecords(RcdAddress);
 		//Collecting Records and Calculating AvgRating
 		double avgRating = 0;
 
 		for (Record record: records) {
-			avgRating += record.getAvgRating();
+			avgRating = avgRating + record.getAvgRating();
 		}
-		avgRating /= records.size(); //Cal AvgRating -> Total Average Rating/ Total Record Size then put back in avgRating 
+		avgRating = avgRating / records.size(); //Cal AvgRating -> Total Average Rating/ Total Record Size 
 		System.out.println("Average rating="+avgRating);
 	}
 
 	//Conduct Experiment 4 -> Records with numVotes 30k-40k
 	public void doExperiment4(){
-		System.out.println("Experiment 4 started, getting records with numVotes between 30k-40k ");
+		System.out.println("To Do: Retrieve out Movies with NumVotes from 30,000 - 40,000. ");
 		ArrayList<Address> RcdAddress = index.getRecordsWithKeyInRange(30000,40000);
 		ArrayList<Record> records = disk.getRecords(RcdAddress);
 		// records collected, do calculate average rating
 		double avgRating = 0;
 		for (Record record: records) {
-			avgRating += record.getAvgRating();
+			avgRating = avgRating + record.getAvgRating(); //total avgRating
 		}
-		avgRating /= records.size();
+		//cal avgRating
+		avgRating = avgRating / records.size();
 		System.out.println("Average rating="+avgRating);
 	}
 
 	public void doExperiment5(){
+		System.out.println("To Do: Delete out Movies with NumVotes = 1000");
 		index.deleteKey(1000);
 	}
 
-
-	// app menu
+	// Start Menu
 	private String getOptions(String[] options, boolean Quit){
 		int i = 0;
 		while (i < options.length){
 			System.out.println(String.format("[%d] %s",i+1, options[i]));
 			i++;
 		}
-
 		if (Quit){
-			System.out.println("[q] quit");
+			System.out.println("Type 'q' to quit the application");
 		}
 		System.out.print("Enter the option: ");
 		return scanner.nextLine();
@@ -110,7 +110,7 @@ public class MainApp implements Constants {
 	}
 	private void pause(String message){
 		if (message == null){
-			message = "Press Enter to Continue the Operation";
+			message = "Press 'Enter' to Continue the Operation";
 		}
 		System.out.print(message);
 		scanner.nextLine();
@@ -123,7 +123,7 @@ public class MainApp implements Constants {
 		};
 		String input;
 		do {
-			System.out.println("-----------------------------------Experiment 4--------------------------------------------------------");
+			System.out.println("------------------------------------------------------------------------------------------------------");
 			System.out.println("CZ4031 - Database System Principles Assignment-1 (Group "+GROUP_NUM+")");
 			input = getOptions(menu, true);
 			switch (input) {

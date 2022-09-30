@@ -182,7 +182,7 @@ public class Disk {
      * @return arraylist of records
     */
 
-    // this method hasnt been editted yet. 
+
     public ArrayList<Record> getRecords(ArrayList<Address> addresses ){
         
         int blockAccess = 0;

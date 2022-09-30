@@ -13,7 +13,7 @@ public class BPlusTree {
     private int minLeafKeys; // Minimum number of keys for an Internal/Parent Node
     private int bPTreeHeight; // Height of B + Tree
     private int nodeCount; // Number of Nodes
-    private int nodesRemoved; // Number of nodes removed for app.util.Log
+    private int nodesRemoved; // Number of nodes removed
     Node root; // New root node assigned for a given B + Tree
 
     public BPlusTree(int blockSize) {
@@ -430,7 +430,7 @@ public class BPlusTree {
         int blockAccess = 1;
         int siblingAccess = 0;
 
-        System.out.println("B+Tree.keySearch:"+ " Accessing root node");
+        System.out.println("Accessing root node");
 
         Node curr = root;
         ParentNode parentNode;
@@ -440,13 +440,13 @@ public class BPlusTree {
             parentNode = (ParentNode) curr;
             for (int i = 0; i < parentNode.getKeys().size(); i++) {
                 if (key <= parentNode.getKey(i)) {
-                    System.out.println("B+Tree.keySearch: "+ "Follwing Pointer :" + i + ": key " + key  + " <=curKey " + parentNode.getKey(i));
+                    System.out.println("Follwing the Pointer of :" + i + ": key " + key  + " <=curKey " + parentNode.getKey(i));
                     curr = parentNode.getChild(i);
                     blockAccess++;
                     break;
                 }
                 if (i == parentNode.getKeys().size() - 1) {
-                    System.out.println("B+Tree.keySearch: " +curr.toString());
+                    System.out.println(curr.toString());
                     curr = parentNode.getChild(i + 1);
                     blockAccess++;
                     break;
@@ -482,18 +482,16 @@ public class BPlusTree {
         }
 
         if (siblingAccess > 0){
-                System.out.println("B+Tree.KeySearch: "  + siblingAccess + " sibling node accessed");
+                System.out.println( siblingAccess + " sibling node accessed");
             }
         
-        else{ //to be added verbose
+        else{
             System.out.println("B+Tree.KeySearch: " + "input " + key +" :" +result.size() + " records found with " + blockAccess +  " node access");
-            //Log.i("B+Tree.keySearch", String.format("input(%d): %d records found with %d node access", key, result.size(), blockAccess));
         }
         return result;
         
     }
 
-    // didn't change this function
     public void treeStats() {
 
         ArrayList<Integer> rootContents = new ArrayList<Integer>();
@@ -512,18 +510,19 @@ public class BPlusTree {
             firstContents.add(first.getKey(j));
             j++;
         }
-        System.out.println("treeStats "+ "n = " + n + ", number of nodes = " + nodeCount + ", height = " + bPTreeHeight);
+        System.out.println("B+ Tree Information:");
+        System.out.println( "n = " + n + ", number of nodes = " + nodeCount + ", height = " + bPTreeHeight);
         System.out.println("root node ccontents = " + rootContents);
         System.out.println("First Child Contents = "+ firstContents);
     }
 
-    // used in main
-    // TODO for Experiment 4
+    // To be ussed in main
+    // For Experiment 4
     public ArrayList<Address> getRecordsWithKeyInRange(int min, int max) {
         return getRecordsWithKeyInRange(min, max, true);
     }
 
-    // changed: curNode to curr
+    
     public ArrayList<Address> getRecordsWithKeyInRange(int min, int max, boolean isVerbose) {
         ArrayList<Address> result = new ArrayList<>();
         int nodeAccess = 1; // access the root??
@@ -596,65 +595,13 @@ public class BPlusTree {
         return result;
     }
 
-    // TODO for Experiment 5
+    
     public ArrayList<Address> removeRecordsWithKey() {
         // list of address need to be return, so app can use it to delete records from
         // disk
         return null;
     }
-/* 
-    public void logStructure() {
-        logStructure(0, Integer.MAX_VALUE, root);
-    }
 
-    public void logStructure(int maxLevel) {
-        logStructure(0, maxLevel, root);
-    }
-
-    // changed: curNode to curr
-    // recursive logging of tree structure
-    private void logStructure(int level, int maxLevel, Node curr) {
-        if (curr == null) {
-            curr = root;
-        }
-        if (level > maxLevel) {
-            return;
-        }
-
-        System.out.print("h=" + level + "; ");
-        curr.logStructure();
-        if (curr.getIsLeaf()) {
-            return;
-        }
-        ParentNode parentNode = (ParentNode) curr;
-        for (Node child : parentNode.getChildren()) {
-            logStructure(level + 1, maxLevel, child);
-        }
-    }
-    */
+    
 }
 
-/*
- * main changes:
- * deleted createFirst, put the implementation into BPlusTree
- * deleted insertLeafNode, put into implementation of insert
- * split getRecordsWithKey to 1 getRecordsWithKey and 1 findRecordsWithKey
- * move the first if statement (no need to cheng node) in resetLeaf to delete
- * key insyead
- * deleted splitLeaf, put into insert
- */
-
-/*
- * changed class TAG to BpTree
- * changed variable names of leafMinKeys, parentMinKeys to minLeafKeys,
- * minInternalKeys
- * changed variable names of height, noOfNodes, nodesRemoved to bPTreeHeight,
- * nodeCount, nodesRemoved
- * Include comments and private keyword for variable declaration
- * changed variable names of keys inside split parent, insert, delete
- * tried to combine resetLeaf and resetParent together under delete but it was
- * too messy.
- * Just changed the order of the loops inside reset for now but maybe we can
- * look into creating either 1 class or function for reset
- * 
- */
