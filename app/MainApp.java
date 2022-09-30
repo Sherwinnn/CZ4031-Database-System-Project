@@ -20,6 +20,7 @@ public class MainApp implements Constants {
 	 * @param bSize
 	 * @throws Exception
 	 */
+
 	public void run(int bSize) throws Exception {
 		// read records from data file
 		List<Record> records = Utility.readRecord(DATA_FILE_PATH);
@@ -35,6 +36,7 @@ public class MainApp implements Constants {
 			recordAddr = disk.pushRecord(r);
 			index.insert( r.getNumVotes(), recordAddr);
 		}
+		
 		System.out.println("Record inserted into storage and index created");
 		System.out.println("-----------------------------------Experiment 1--------------------------------------------------------");
 		disk.diskinfo();
@@ -44,7 +46,7 @@ public class MainApp implements Constants {
 		System.out.println();
 
 
-		// Execute the Experiment
+		// Execute the Experiments
 		System.out.println("-----------------------------------Experiment 3--------------------------------------------------------");
 		doExperiment3();
 		System.out.println();
@@ -55,23 +57,26 @@ public class MainApp implements Constants {
 		doExperiment5();
 	}
 
+	//Conduct Experiment 3 ->Records with NumVotes of 500
 	public void doExperiment3(){
 		System.out.println("Experiment 3 started, getting records with numVotes of 500");
-		ArrayList<Address> e3RecordAddresses = index.getRecordsWithKey(500);
-		ArrayList<Record> records = disk.getRecords(e3RecordAddresses);
-		// records collected, do calculate average rating
+		ArrayList<Address> RcdAddress = index.getRecordsWithKey(500);
+		ArrayList<Record> records = disk.getRecords(RcdAddress);
+		//Collecting Records and Calculating AvgRating
 		double avgRating = 0;
+
 		for (Record record: records) {
 			avgRating += record.getAvgRating();
 		}
-		avgRating /= records.size();
+		avgRating /= records.size(); //Cal AvgRating -> Total Average Rating/ Total Record Size then put back in avgRating 
 		System.out.println("Average rating="+avgRating);
 	}
 
+	//Conduct Experiment 4 -> Records with numVotes 30k-40k
 	public void doExperiment4(){
 		System.out.println("Experiment 4 started, getting records with numVotes between 30k-40k ");
-		ArrayList<Address> e4RecordAddresses = index.getRecordsWithKeyInRange(30000,40000);
-		ArrayList<Record> records = disk.getRecords(e4RecordAddresses);
+		ArrayList<Address> RcdAddress = index.getRecordsWithKeyInRange(30000,40000);
+		ArrayList<Record> records = disk.getRecords(RcdAddress);
 		// records collected, do calculate average rating
 		double avgRating = 0;
 		for (Record record: records) {
@@ -87,11 +92,14 @@ public class MainApp implements Constants {
 
 
 	// app menu
-	private String getOptions(String[] options, boolean includeQuit){
-		for (int i = 0; i < options.length; i++) {
+	private String getOptions(String[] options, boolean Quit){
+		int i = 0;
+		while (i < options.length){
 			System.out.println(String.format("[%d] %s",i+1, options[i]));
+			i++;
 		}
-		if (includeQuit){
+
+		if (Quit){
 			System.out.println("[q] quit");
 		}
 		System.out.print("Enter the option: ");
@@ -102,7 +110,7 @@ public class MainApp implements Constants {
 	}
 	private void pause(String message){
 		if (message == null){
-			message = "Press any key to continue";
+			message = "Press Enter to Continue the Operation";
 		}
 		System.out.print(message);
 		scanner.nextLine();
