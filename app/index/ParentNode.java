@@ -1,12 +1,8 @@
 package app.index;
 
-
-import app.util.Log;
-
 import java.util.ArrayList;
 
 public class ParentNode extends Node {
-    private static final String TAG = "Node.P";
 
     private ArrayList<Node> children;
 
@@ -95,10 +91,9 @@ public class ParentNode extends Node {
         return null;
     }
 
-
-    @Override
-    void logStructure() {
-        Log.d(TAG, this.toString());
+    void treeStructure() {
+        System.out.println(this.toString());
+        
     }
 
     @Override

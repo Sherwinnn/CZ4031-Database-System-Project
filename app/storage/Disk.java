@@ -1,6 +1,5 @@
 package app.storage;
 
-import app.util.Log;
 import app.util.Utility;
 
 import java.util.*;
@@ -9,7 +8,6 @@ import java.util.*;
  * this class represents the disk storage, which stores the blocks of data
  */
 public class Disk {
-    private static final String TAG = "Disk";
     private int diskSize;
     private int blockSize;
     private int recordSize;
@@ -29,7 +27,6 @@ public class Disk {
         this.recordNum = 0;
         this.maxBlockNum = diskSize / blockSize; 
         this.blocks = new ArrayList<>();
-        log();
     }
 
     /**
@@ -199,18 +196,16 @@ public class Disk {
             boolean cacheRead = tempBlock != null;
             if (tempBlock == null){
                 tempBlock = retrieveBlock(address.getBID());
-//                Log.v("Disk Access", String.format("Disk read: blockId=%d, offset=%d, block=%s", address.blockId, address.offset, tempBlock));
                 cache.put(address.getBID(), tempBlock);
                 blockAccess++;
             } else {// accessing the block from cache, no block access
-//                Log.v("Disk Access", String.format("Cache read: blockId=%d, offset=%d, block=%s", address.blockId, address.offset, tempBlock));
             }
 
             Record record = tempBlock.readRecord(address.getID());
-			Log.v("Disk Access", String.format("%s read: blockId=%4d, \toffset=%d, \trecord=%s", cacheRead?"Cache":"Disk", address.getBID(), address.getID(), record));
             retrievedRecords.add( record );
         }
-        Log.i(TAG, String.format("Retrieved %d records with %d block access", retrievedRecords.size(), blockAccess));
+        System.out.printf("Retrieved %d records with %d block access", retrievedRecords.size(), blockAccess);
+        System.out.println();
         return retrievedRecords;
     }
 
@@ -243,12 +238,12 @@ public class Disk {
         }
     }
 
-
-    // debugs only
-    public void log(){
-        Log.d(TAG, String.format("disk size = %s / %s", Utility.formatFileSize(getUsedDisk()), Utility.formatFileSize(diskSize) ));
-        Log.d(TAG, String.format("block size = %s", Utility.formatFileSize(blockSize)));
-        Log.d(TAG, String.format("blocks = %,d / %,d", blocks.size(), maxBlockNum));
-        Log.d(TAG, String.format("records = %,d", recordNum));
-    }
+    public void diskinfo(){
+        System.out.printf("disk size = %s / %s", Utility.formatFileSize(getUsedDisk()), Utility.formatFileSize(diskSize) );
+        System.out.println();
+        System.out.printf(String.format("block size = %s", Utility.formatFileSize(blockSize)));
+        System.out.println();
+        System.out.printf("blocks = %,d / %,d", blocks.size(), maxBlockNum);
+        System.out.println();
+        System.out.printf("records = %,d", recordNum);    }
 }

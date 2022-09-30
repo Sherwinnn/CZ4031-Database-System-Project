@@ -156,5 +156,4 @@ public abstract class Node {
         keys = new ArrayList<Integer>();
     }
 
-    abstract void logStructure();
 }
