@@ -13,54 +13,54 @@ import app.storage.Record;
 
 
 public class Utility {
-	private static final String TAG = "Utility";
 
 	/**
 	 * Loading and parsing the records from .tsv file
-	 * @param path path to data file
+	 * @param filePath to data file
 	 * @return list of records
 	 * @throws Exception
 	 */
-	public static List<Record> readRecord(String path) throws Exception {
-		File dataFile = new File(path);
-		Log.i(TAG, "Loading records from "+path);
+	public static List<Record> readRecord(String filePath) throws Exception {
+		File dataFile = new File(filePath);
+		System.out.println("----------------------------------Information of Data-------------------------------------------------");
+		System.out.println("Loading records from "+filePath);
+		
 		if (!dataFile.exists()) {
-			// file is not exist, try to add current directory and try again
-
-			dataFile = new File(Constants.PROJECT_DIRECTORY, path);
-			Log.i(TAG, "Failed, re-attempt to load record from "+dataFile.getAbsolutePath());
+			dataFile = new File(Constants.PROJECT_DIRECTORY, filePath);
+			System.out.println("Reading Records from " + dataFile.getAbsolutePath());
 			if (!dataFile.exists()){
-				throw new FileNotFoundException("File not exist");
+				throw new FileNotFoundException("File doesnt exist, check file path!");
 			}
 		}
-
-		BufferedReader br = null;
+		
+		// initialising a new arraylist of records
 		List<Record> records = new ArrayList<>();
 		String line;
 		String[] parts = null;
+		BufferedReader TSVReader = null;
 		try {
-			br = new BufferedReader( new FileReader(dataFile));
+			TSVReader = new BufferedReader( new FileReader(dataFile));
 			// reading header first (to be skipped)
-			br.readLine();
-			while((line = br.readLine()) != null) {
+			TSVReader.readLine();
+			while((line = TSVReader.readLine()) != null) {
 				parts = line.split("\\t");
-				Record record = new Record(parts[0], Float.parseFloat(parts[1]), Integer.parseInt( parts[2]));
+				Record record = new Record(Float.parseFloat(parts[1]), Integer.parseInt(parts[2]), parts[0]);
 				records.add( record );
 				Analyzer.analysis(record);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
-			if (br != null) {
+			if (TSVReader != null) {
 				try {
-					br.close();
+					TSVReader.close();
 				}catch (IOException e) {
-					Log.e(e.getMessage());
+					System.out.println(e.getMessage());
 				}
 			}
 		}
-		Log.d(TAG, "total records: "+records.size());
-		Analyzer.log();
+		System.out.println("Total Records: "+ records.size());
+		Analyzer.overallinfo();
 		return records;
 	}
 
@@ -84,7 +84,7 @@ public class Utility {
 		ArrayList<Record> records = new ArrayList<>();
 		for (int i = 0; i < num; i++) {
 			String tconst = String.format("tt%08d", i+1);
-			records.add( new Record(tconst, 0f, i+1));
+			records.add( new Record(0f, i+1, tconst));
 		}
 		return records;
 	}
@@ -93,19 +93,8 @@ public class Utility {
 		ArrayList<Record> records = new ArrayList<>();
 		for (int i = 0; i < num; i++) {
 			String tconst = String.format("tt%08d", i+1);
-			records.add( new Record(tconst, 0f, i/duplicates));
+			records.add( new Record(0f, i/duplicates, tconst));
 		}
 		return records;
 	}
-
-
-	// for DEBUG
-//	public static void logDirs(){
-//		String path1 = System.getProperty("user.dir");
-//		String path2 = new File("").getAbsolutePath();
-//		String root  = Paths.get(path1).getRoot().toAbsolutePath().toString();
-//		Log.d("user.dir", path1);
-//		Log.d("File.absPath", path2);
-//		Log.d("root", root);
-//	}
 }

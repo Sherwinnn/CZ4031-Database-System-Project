@@ -1,6 +1,6 @@
 package app.index;
-
 import java.util.ArrayList;
+import app.index.ParentNode;
 
 public abstract class Node {
     
@@ -156,5 +156,4 @@ public abstract class Node {
         keys = new ArrayList<Integer>();
     }
 
-    abstract void logStructure();
 }

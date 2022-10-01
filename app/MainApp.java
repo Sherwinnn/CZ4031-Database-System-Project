@@ -1,90 +1,106 @@
-package app;
 
+package app;
  
 import java.util.*;
 
-import app.storage.Address;
 import app.storage.Disk;
 import app.storage.Record;
-import app.index.BPlusTree;
-import app.util.Log;
 import app.util.Utility;
+import app.index.BPlusTree;
+import app.storage.Address;
 
 public class MainApp implements Constants {
-	private static final String TAG = "App";
+	
 	Scanner scanner = new Scanner(System.in);
 	private Disk disk;
 	private BPlusTree index;
 
+	/**
+	 * 
+	 * @param bSize
+	 * @throws Exception
+	 */
 
-	public void run(int blockSize) throws Exception {
+	public void run(int bSize) throws Exception {
 		// read records from data file
 		List<Record> records = Utility.readRecord(DATA_FILE_PATH);
 
-		disk = new Disk(Constants.DISK_SIZE, blockSize);
-		index = new BPlusTree(blockSize);
+		disk = new Disk(Constants.DISK_SIZE, bSize);
+		index = new BPlusTree(bSize);
 
-		Log.i(TAG,"Running program with block size of "+blockSize);
-		Log.i(TAG,"Prepare to insert records into storage and create index");
+		System.out.println("Running program with block size of "+bSize);
+		System.out.println("Prepare to insert records into storage and create index");
 		Address recordAddr;
 		for (Record r: records) {
 			// inserting records into disk and create index!
-			recordAddr = disk.appendRecord(r);
+			recordAddr = disk.pushRecord(r);
 			index.insert( r.getNumVotes(), recordAddr);
 		}
-		Log.i(TAG,"Record inserted into storage and index created");
-		disk.log();
-//		index.logStructure(1); // printing root and first level?
-
+		
+		System.out.println("Record inserted into storage and index created");
+		System.out.println("-----------------------------------Experiment 1--------------------------------------------------------");
+		disk.diskinfo();
+		System.out.println();
+		System.out.println("-----------------------------------Experiment 2--------------------------------------------------------");
 		index.treeStats();
+		System.out.println();
 
-		pause("Press any key to start experience 3");
-		doExperience3();
-		pause("Press any key to start experience 4");
-		doExperience4();
-		pause("Press any key to start experience 5");
-		doExperience5();
+
+		// Execute the Experiments
+		System.out.println("-----------------------------------Experiment 3--------------------------------------------------------");
+		doExperiment3();
+		System.out.println();
+		System.out.println("-----------------------------------Experiment 4--------------------------------------------------------");
+		doExperiment4();
+		System.out.println();
+		System.out.println("-----------------------------------Experiment 5--------------------------------------------------------");
+		doExperiment5();
 	}
 
-	public void doExperience3(){
-		Log.i(TAG,"Experience 3 started, getting records with numVotes of 500");
-		ArrayList<Address> e3RecordAddresses = index.getRecordsWithKey(500);
-		ArrayList<Record> records = disk.getRecords(e3RecordAddresses);
+	//Conduct Experiment 3 ->Records with NumVotes of 500
+	public void doExperiment3(){
+		System.out.println("To Do: Retrieve out movies with numvotes = 500.");
+		ArrayList<Address> RcdAddress = index.getRecordsWithKey(500);
+		ArrayList<Record> records = disk.getRecords(RcdAddress);
+		//Collecting Records and Calculating AvgRating
+		double avgRating = 0;
+
+		for (Record record: records) {
+			avgRating = avgRating + record.getAvgRating();
+		}
+		avgRating = avgRating / records.size(); //Cal AvgRating -> Total Average Rating/ Total Record Size 
+		System.out.println("Average rating="+avgRating);
+	}
+
+	//Conduct Experiment 4 -> Records with numVotes 30k-40k
+	public void doExperiment4(){
+		System.out.println("To Do: Retrieve out Movies with NumVotes from 30,000 - 40,000. ");
+		ArrayList<Address> RcdAddress = index.getRecordsWithKeyInRange(30000,40000);
+		ArrayList<Record> records = disk.getRecords(RcdAddress);
 		// records collected, do calculate average rating
 		double avgRating = 0;
 		for (Record record: records) {
-			avgRating += record.getAvgRating();
+			avgRating = avgRating + record.getAvgRating(); //total avgRating
 		}
-		avgRating /= records.size();
-		Log.i("Average rating="+avgRating);
+		//cal avgRating
+		avgRating = avgRating / records.size();
+		System.out.println("Average rating="+avgRating);
 	}
 
-	public void doExperience4(){
-		Log.i(TAG,"Experience 4 started, getting records with numVotes between 30k-40k ");
-		ArrayList<Address> e4RecordAddresses = index.getRecordsWithKeyInRange(30000,40000);
-		ArrayList<Record> records = disk.getRecords(e4RecordAddresses);
-		// records collected, do calculate average rating
-		double avgRating = 0;
-		for (Record record: records) {
-			avgRating += record.getAvgRating();
-		}
-		avgRating /= records.size();
-		Log.i("Average rating="+avgRating);
-	}
-
-	public void doExperience5(){
+	public void doExperiment5(){
+		System.out.println("To Do: Delete out Movies with NumVotes = 1000");
 		index.deleteKey(1000);
-		// TODO: get back address and delete records from storage
 	}
 
-
-	// app menu
-	private String getOptions(String[] options, boolean includeQuit){
-		for (int i = 0; i < options.length; i++) {
+	// Start Menu
+	private String getOptions(String[] options, boolean Quit){
+		int i = 0;
+		while (i < options.length){
 			System.out.println(String.format("[%d] %s",i+1, options[i]));
+			i++;
 		}
-		if (includeQuit){
-			System.out.println("[q] quit");
+		if (Quit){
+			System.out.println("Type 'q' to quit the application");
 		}
 		System.out.print("Enter the option: ");
 		return scanner.nextLine();
@@ -94,7 +110,7 @@ public class MainApp implements Constants {
 	}
 	private void pause(String message){
 		if (message == null){
-			message = "Press any key to continue";
+			message = "Press 'Enter' to Continue the Operation";
 		}
 		System.out.print(message);
 		scanner.nextLine();
@@ -102,111 +118,29 @@ public class MainApp implements Constants {
 
 	public void displayMainMenu() throws Exception {
 		String[] menu = {
-				"Experience with block size 100B",
+				"Experience with block size 200B",
 				"Experience with block size 500B",
-				"Log setting"
 		};
 		String input;
 		do {
-			System.out.println("CZ4031 - Database Assignment 1 (Group "+GROUP_NUM+")");
+			System.out.println("------------------------------------------------------------------------------------------------------");
+			System.out.println("CZ4031 - Database System Principles Assignment-1 (Group "+GROUP_NUM+")");
 			input = getOptions(menu, true);
 			switch (input) {
 				case "1":
-					run(BLOCK_SIZE_100);
+					run(BLOCK_SIZE_200);
 					pause();
 					break;
 				case "2" :
 					run(BLOCK_SIZE_500);
 					pause();
 					break;
-				case "3":
-					displayLogSetting();
-					break;
 			}
 		} while (!input.equals("q"));
 	}
-
-	public void displayLogSetting(){
-		String[] menu;
-		String input;
-		do {
-			menu = new String[]{
-					String.format("Adjust log level (current: %s)", Log.getLogLevelString()),
-					String.format("include timestamp (current %b)", Log.isTimestampEnabled()),
-					String.format("change timestamp format (current: %s)", Log.getTimestampFormat())
-			};
-			System.out.println("Log Setting");
-			input = getOptions(menu, true);
-			switch (input){
-				case "1":
-					adjustLogLevel();
-					break;
-				case "2":
-					adjustLogTimestamp();
-					break;
-				case "3":
-					adjustLogTimestampFormat();
-					break;
-			}
-		} while (!input.equals("q"));
-
-	}
-
-	private void adjustLogLevel(){
-		String[] menu = {
-				"None", "Error", "Warn", "Info", "Debug", "Verbose"
-		};
-		String input = getOptions(menu, false);
-		switch (input){
-			case "1":
-				Log.setLevel(Log.LEVEL_NONE);
-				break;
-			case "2":
-				Log.setLevel(Log.LEVEL_ERROR);
-				break;
-			case "3":
-				Log.setLevel(Log.LEVEL_WARN);
-				break;
-			case "4":
-				Log.setLevel(Log.LEVEL_INFO);
-				break;
-			case "5":
-				Log.setLevel(Log.LEVEL_DEBUG);
-				break;
-			case "6":
-				Log.setLevel(Log.LEVEL_VERBOSE);
-				break;
-		}
-	}
-	private void adjustLogTimestamp(){
-		String[] menu = {"Enable", "Disable"};
-		String input = getOptions(menu, false);
-		switch (input){
-			case "1":
-				Log.setTimestampEnabled(true);
-				break;
-			case "2":
-				Log.setTimestampEnabled(false);
-				break;
-		}
-	}
-	private void adjustLogTimestampFormat(){
-		String[] menu = {"Detail", "Simple"};
-		String input = getOptions(menu, false);
-		switch (input){
-			case "1":
-				Log.setTimestampFormat(Log.FORMAT_DETAIL);
-				break;
-			case "2":
-				Log.setTimestampFormat(Log.FORMAT_SIMPLE);
-				break;
-		}
-	}
-
 
 	public static void main(String[] args) {
 		try {
-			Log.setLevel(Log.LEVEL_DEBUG);
 			MainApp app = new MainApp();
 			app.displayMainMenu();
 		} catch (Exception e) {
