@@ -507,8 +507,10 @@ public class BPlusTree {
             }
         }
 
+        System.out.println( blockAccess + " nodes (including sibling nodes) accessed");
+
         if (siblingAccess > 0){
-                System.out.println( siblingAccess + " sibling node accessed");
+                System.out.println( siblingAccess + " sibling nodes accessed");
             }
         
         else{
