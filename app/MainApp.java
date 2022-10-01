@@ -62,6 +62,17 @@ public class MainApp implements Constants {
 		System.out.println("To Do: Retrieve out movies with numvotes = 500.");
 		ArrayList<Address> RcdAddress = index.getRecordsWithKey(500);
 		ArrayList<Record> records = disk.getRecords(RcdAddress);
+
+		for(int i  = 0;i<5;i++){
+			Address address = RcdAddress.get(i);
+			int b = address.getBID();
+			System.out.println("\nBlock "+ b + ": ");
+			for(int j = 0;j<5;j++){
+			  Record x = disk.retrieveBlock(b).readRecord(j);
+			  System.out.print(x.getTconst()+" ");
+			}
+		}
+
 		//Collecting Records and Calculating AvgRating
 		double avgRating = 0;
 
@@ -69,7 +80,7 @@ public class MainApp implements Constants {
 			avgRating = avgRating + record.getAvgRating();
 		}
 		avgRating = avgRating / records.size(); //Cal AvgRating -> Total Average Rating/ Total Record Size 
-		System.out.println("Average rating="+avgRating);
+		System.out.println("\nAverage rating="+avgRating);
 	}
 
 	//Conduct Experiment 4 -> Records with numVotes 30k-40k
@@ -78,13 +89,24 @@ public class MainApp implements Constants {
 		ArrayList<Address> RcdAddress = index.getRecordsWithKeyInRange(30000,40000);
 		ArrayList<Record> records = disk.getRecords(RcdAddress);
 		// records collected, do calculate average rating
+
+		for(int i  = 0;i<5;i++){
+			Address address = RcdAddress.get(i);
+			int b = address.getBID();
+			System.out.println("\nBlock "+ b + ": ");
+			for(int j = 0;j<5;j++){
+			  Record x = disk.retrieveBlock(b).readRecord(j);
+			  System.out.print(x.getTconst()+" ");
+			}
+		}
+
 		double avgRating = 0;
 		for (Record record: records) {
 			avgRating = avgRating + record.getAvgRating(); //total avgRating
 		}
 		//cal avgRating
 		avgRating = avgRating / records.size();
-		System.out.println("Average rating="+avgRating);
+		System.out.println("\nAverage rating="+avgRating);
 	}
 
 	public void doExperiment5(){
