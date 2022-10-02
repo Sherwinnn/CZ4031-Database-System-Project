@@ -86,7 +86,7 @@ public class Record {
 	}
 	
 	/**
-	 * @return record size
+	 * @return record size (18 bytes)
 	 */
 	public static int getSize() {
 		return 18;
