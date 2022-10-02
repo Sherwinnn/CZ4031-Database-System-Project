@@ -3,14 +3,14 @@ package app.util;
 import app.storage.Record;
 
 public class Analyzer {
-    private static final String TAG = "Analyzer";
 
-    public static int minKeyLength = Integer.MAX_VALUE;
-    public static int maxKeyLength = Integer.MIN_VALUE;
-    public static double maxAvgRating = Double.MIN_VALUE;
-    public static double minAvgRating = Double.MAX_VALUE;
     public static int maxVotes= Integer.MIN_VALUE;
     public static int minVotes= Integer.MAX_VALUE;
+    public static double maxAvgRating = Double.MIN_VALUE;
+    public static double minAvgRating = Double.MAX_VALUE;
+    public static int minKeyLength = Integer.MAX_VALUE;
+    public static int maxKeyLength = Integer.MIN_VALUE;
+
 
 
     public static  void analysis(Record record){
@@ -21,25 +21,29 @@ public class Analyzer {
             maxKeyLength = record.getTconst().length();
         }
 
-        if (record.getNumVotes() > maxVotes){
-            maxVotes = record.getNumVotes();
-        }
-        if (record.getNumVotes() < minVotes){
-            minVotes = record.getNumVotes();
-        }
-
         if (record.getAvgRating() > maxAvgRating){
             maxAvgRating = record.getAvgRating();
         }
         if (record.getAvgRating() < minAvgRating){
             minAvgRating = record.getAvgRating();
         }
-    }
+        
+        if (record.getNumVotes() > maxVotes){
+            maxVotes = record.getNumVotes();
+        }
+        if (record.getNumVotes() < minVotes){
+            minVotes = record.getNumVotes();
+        }
+        }
+    
 
-    public static void log(){
-        Log.d(TAG, String.format("keyLength = %d - %d", minKeyLength, maxKeyLength));
-        Log.d(TAG, String.format("avgRating= %.2f - %.2f", minAvgRating, maxAvgRating));
-        Log.d(TAG, String.format("numVotes= %,d - %,d", minVotes, maxVotes));
+    public static void overallinfo(){
+        System.out.printf("KeyLength = %d - %d", minKeyLength, maxKeyLength);
+        System.out.println();
+        System.out.printf("avgRating= %.2f - %.2f", minAvgRating,maxAvgRating);
+        System.out.println();
+        System.out.printf("numVotes= %,d - %,d", minVotes, maxVotes);
+        System.out.println();
     }
 
     public static void reset(){
@@ -52,4 +56,3 @@ public class Analyzer {
     }
 
 }
-    

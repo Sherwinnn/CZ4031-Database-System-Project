@@ -10,22 +10,28 @@ import java.util.List;
 
 import app.Constants;
 import app.storage.Record;
+import app.util.Analyzer;
 
 
 public class Utility {
-	private static final String TAG = "Utility";
 
 	/**
-	 * Loading and parsing the records from .tsv file
-	 * @param path to data file
-	 * @return list of records
+	 * Loading records from the data file
+	 * @param filePath to data file
+	 * @return array of records
 	 * @throws Exception
 	 */
 	public static List<Record> readRecord(String filePath) throws Exception {
 		File dataFile = new File(filePath);
-		Log.i(TAG, "Loading records from "+filePath);
+		System.out.println("----------------------------------Information of Data-------------------------------------------------");
+		System.out.println("Loading records from "+filePath);
+		
 		if (!dataFile.exists()) {
-			throw new FileNotFoundException("File doesnt exist, check file path!");
+			dataFile = new File(Constants.PROJECT_DIRECTORY, filePath);
+			System.out.println("Reading Records from " + dataFile.getAbsolutePath());
+			if (!dataFile.exists()){
+				throw new FileNotFoundException("File doesnt exist, check file path!");
+			}
 		}
 		
 		// initialising a new arraylist of records
@@ -50,12 +56,12 @@ public class Utility {
 				try {
 					TSVReader.close();
 				}catch (IOException e) {
-					Log.e(e.getMessage());
+					System.out.println(e.getMessage());
 				}
 			}
 		}
-		Log.d(TAG, "total records: "+records.size());
-		Analyzer.log();
+		System.out.println("Total Records: "+ records.size());
+		Analyzer.overallinfo();
 		return records;
 	}
 
@@ -92,15 +98,4 @@ public class Utility {
 		}
 		return records;
 	}
-
-
-	// for DEBUG
-//	public static void logDirs(){
-//		String path1 = System.getProperty("user.dir");
-//		String path2 = new File("").getAbsolutePath();
-//		String root  = Paths.get(path1).getRoot().toAbsolutePath().toString();
-//		Log.d("user.dir", path1);
-//		Log.d("File.absPath", path2);
-//		Log.d("root", root);
-//	}
 }
