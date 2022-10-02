@@ -5,7 +5,7 @@ public interface Constants {
     int DISK_SIZE = 200*1000*1000; // 200 MB
     int BLOCK_200 = 200;
     int BLOCK_500 = 500;
-    String PROJECT_DIRECTORY = "Database"; //change this accordingly
-    String DATA_PATH = "/Users/xiaoxuan/Documents/Y3S1/java_proj1/app/data.tsv";
+    String PROJECT_DIRECTORY = "app"; //change this accordingly
+    String DATA_PATH = "data.tsv";
     
 }

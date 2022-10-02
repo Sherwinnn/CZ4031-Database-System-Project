@@ -463,7 +463,7 @@ public class BPlusTree {
                     break;
                 }
                 if (i == parentNode.getKeys().size() - 1) {
-
+                    System.out.println("Follwing the Pointer of :" + i + ": key " + key  + " <=curKey " + parentNode.getKey(i));
                     curr = parentNode.getChild(i + 1);
                     blockAccess++;
                     if (blockAccess <= 5) {
@@ -640,6 +640,7 @@ public class BPlusTree {
         }
         if (siblingAccess > 0) {
             if (isVerbose) {
+                System.out.println( nodeAccess + " nodes (including sibling nodes) accessed");
                 System.out.println( siblingAccess + " sibling node accessed");
             }
         }
