@@ -1,11 +1,13 @@
-package app.index;
+package databaseApp.recordIndex;
+
 import java.util.ArrayList;
-import app.index.ParentNode;
+
+import databaseApp.recordIndex.Internal_N;
 
 public abstract class Node {
-    
+
     private ArrayList<Integer> keys;
-    private ParentNode parent;
+    private Internal_N parent;
     private boolean isLeaf;
     private boolean isRoot;
 
@@ -15,7 +17,7 @@ public abstract class Node {
         isLeaf = false;
         isRoot = false;
     }
-    
+
     // get whether it is a leaf
     public boolean getIsLeaf() {
 
@@ -41,13 +43,13 @@ public abstract class Node {
     }
 
     // get node's parent
-    public ParentNode getParent() {
+    public Internal_N getParent() {
 
         return parent;
     }
 
     // set node's parent
-    public void setParent(ParentNode progenitor) {
+    public void setParent(Internal_N progenitor) {
 
         parent = progenitor;
     }
@@ -59,7 +61,6 @@ public abstract class Node {
 
     // get key at index
     public int getKey(int index) {
-
 
         return keys.get(index);
     }
@@ -75,7 +76,7 @@ public abstract class Node {
 
         int i;
         keys.add(key);
-        for (i = keys.size() -2; i >= 0; i--) {
+        for (i = keys.size() - 2; i >= 0; i--) {
 
             if (keys.get(i) <= key) {
 
@@ -84,14 +85,14 @@ public abstract class Node {
                 break;
             }
 
-            keys.set(i+1, keys.get(i));
+            keys.set(i + 1, keys.get(i));
             if (i == 0) {
 
                 keys.set(i, key);
                 break;
             }
         }
-        
+
         return i;
     }
 
@@ -107,23 +108,24 @@ public abstract class Node {
         keys = new ArrayList<Integer>();
     }
 
-    // find smallest key (more for use by parentnode but placed here for first level of parents)
+    // find smallest key (more for use by parentnode but placed here for first level
+    // of parents)
     public int findSmallestKey() {
 
         int key;
-        ParentNode copy;
+        Internal_N copy;
 
         if (!this.getIsLeaf()) {
 
-            copy = (ParentNode) this;
+            copy = (Internal_N) this;
 
             while (!copy.getChild(0).getIsLeaf())
-                copy = (ParentNode) copy.getChild(0);
-            
+                copy = (Internal_N) copy.getChild(0);
+
             key = copy.getChild(0).getKey(0);
         }
 
-        else 
+        else
             key = this.getKey(0);
 
         return key;
@@ -139,15 +141,15 @@ public abstract class Node {
         }
 
         if (this.isLeaf) {
-            
-            LeafNode copy = (LeafNode) this;
+
+            Leaf_N copy = (Leaf_N) this;
             copy.deleteRecords();
             copy.setNext(null);
         }
 
         else {
 
-            ParentNode copy = (ParentNode) this;
+            Internal_N copy = (Internal_N) this;
             copy.deleteChildren();
         }
 

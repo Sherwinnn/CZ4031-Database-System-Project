@@ -1,50 +1,51 @@
-package app.index;
-import app.storage.Address;
+package databaseApp.recordIndex;
 
 import java.util.ArrayList;
-import app.index.Node;
 
-public class LeafNode extends Node {
-    private ArrayList<Address> records;
-    private LeafNode next;
+import databaseApp.recordIndex.Node;
+import databaseApp.dataStorage.BlockAddress;
 
-    public LeafNode() {
+public class Leaf_N extends Node {
+    private ArrayList<BlockAddress> records;
+    private Leaf_N next;
+
+    public Leaf_N() {
         super();
-        records = new ArrayList<Address>();
+        records = new ArrayList<BlockAddress>();
         setLeaf(true);
         setNext(null);
     }
 
-    public ArrayList<Address> getRecords() {
+    public ArrayList<BlockAddress> getRecords() {
         return records;
     }
 
-    public Address getRecord(int index) {
+    public BlockAddress getRecord(int index) {
         return records.get(index);
     }
 
-    public LeafNode getNext() {
+    public Leaf_N getNext() {
         return next;
     }
 
-    public void setNext(LeafNode sister) {
+    public void setNext(Leaf_N sister) {
         next = sister;
     }
 
-    public int addRecord(int key, Address address) {
+    public int addRecord(int key, BlockAddress address) {
         if (this.getRecords().size() == 0) {
             this.records.add(address);
             this.addKey(key);
             return 0;
         }
-    
+
         records.add(address);
-    
+
         int index;
         index = super.addKey(key);
 
-        for (int i = records.size()-2; i >= index; i--) 
-            records.set(i+1, records.get(i));
+        for (int i = records.size() - 2; i >= index; i--)
+            records.set(i + 1, records.get(i));
         records.set(index, address);
 
         return index;
@@ -52,7 +53,7 @@ public class LeafNode extends Node {
 
     public void preSplit() {
         deleteKeys();
-        records = new ArrayList<Address>();
+        records = new ArrayList<BlockAddress>();
     }
 
     public void deleteRecord(int index) {
@@ -61,16 +62,17 @@ public class LeafNode extends Node {
     }
 
     public void deleteRecords() {
-        records = new ArrayList<Address>();
+        records = new ArrayList<BlockAddress>();
     }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("[");
-        for (int i=0; i<getKeys().size(); i++){
-            if (i>0){
+        for (int i = 0; i < getKeys().size(); i++) {
+            if (i > 0) {
                 sb.append(", ");
             }
-             sb.append(String.format("%d:{%d=>%s}", i, getKey(i), getRecord(i)));
+            sb.append(String.format("%d:{%d=>%s}", i, getKey(i), getRecord(i)));
         }
         sb.append("]");
         return sb.toString();

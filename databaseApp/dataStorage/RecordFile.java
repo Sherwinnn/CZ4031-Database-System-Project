@@ -1,11 +1,11 @@
-package app.storage;
+package databaseApp.dataStorage;
 
-/** 
- *  this class represents a record that will be stored in blocks on disk
-*/
+/**
+ * this class represents a record that will be stored in blocks on disk
+ */
 
-public class Record {
-	
+public class RecordFile {
+
 	/**
 	 * average rating
 	 */
@@ -14,7 +14,7 @@ public class Record {
 	/**
 	 * number of votes
 	 */
-	private int numVotes; 
+	private int numVotes;
 
 	/**
 	 * assume that a record is 18 bytes
@@ -27,23 +27,25 @@ public class Record {
 	/**
 	 * title identifier of the movie
 	 */
-	public String tconst; 
+	public String tconst;
 
 	/*
-	 * define constructor for the record class 
-	 
-	public Record(){
-		this.tconst = new char[10]; 
-		// every tconst has max 10 characters based on the data
-	} */
+	 * define constructor for the record class
+	 * 
+	 * public Record(){
+	 * this.tconst = new char[10];
+	 * // every tconst has max 10 characters based on the data
+	 * }
+	 */
 
 	/**
 	 * define constructor for the record class
+	 * 
 	 * @param avgRating
 	 * @param numVotes
 	 * @param tconst
 	 */
-	public Record(float avgRating, int numVotes, String tconst) {
+	public RecordFile(float avgRating, int numVotes, String tconst) {
 		this.avgRating = avgRating;
 		this.numVotes = numVotes;
 		this.tconst = tconst;
@@ -51,6 +53,7 @@ public class Record {
 
 	/**
 	 * setter and getter for avgRating
+	 * 
 	 * @return average rating of movie
 	 */
 	public float getAvgRating() {
@@ -63,6 +66,7 @@ public class Record {
 
 	/**
 	 * setter and getter for numVotes
+	 * 
 	 * @return number of votes
 	 */
 	public int getNumVotes() {
@@ -75,6 +79,7 @@ public class Record {
 
 	/**
 	 * setter and getter for tconst
+	 * 
 	 * @return title identifier of movie
 	 */
 	public String getTconst() {
@@ -84,7 +89,7 @@ public class Record {
 	public void setTconst(String tconst) {
 		this.tconst = tconst;
 	}
-	
+
 	/**
 	 * @return record size (18 bytes)
 	 */

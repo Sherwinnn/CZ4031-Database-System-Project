@@ -1,9 +1,9 @@
-package app.storage;
+package databaseApp.dataStorage;
 
 /**
  * this class represents the record's address
  */
-public class Address {
+public class BlockAddress {
     /**
      * block id, which the record is stored in
      */
@@ -16,16 +16,18 @@ public class Address {
 
     /**
      * this defines a constructor for a record address
+     * 
      * @param bID
      * @param id
      */
-    public Address(int bID, int id){
-        this.bID=bID;
-        this.recID=id;
+    public BlockAddress(int bID, int id) {
+        this.bID = bID;
+        this.recID = id;
     }
 
     /**
      * setter and getter for block ID
+     * 
      * @return block id
      */
     public int getBID() {
@@ -36,7 +38,9 @@ public class Address {
         this.bID = bID;
     }
 
-    /** setter and getter for record ID
+    /**
+     * setter and getter for record ID
+     * 
      * @return record id
      */
     public int getID() {
