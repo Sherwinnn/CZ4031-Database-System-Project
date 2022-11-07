@@ -84,15 +84,15 @@ class MyWindow(QMainWindow):
         self.sendButton.setFont(QFont('Arial', 14))
         self.sendButton.clicked.connect(self.onClick)
      
-        self.queryOutput.setText("Output Query here:")
         self.queryOutput.move(25, 333)
         self.queryOutput.resize(700, 567)
+        self.queryOutput.setText("Output Query here:")
         self.queryOutput.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.queryOutput.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
-        self.queryAnnotate.setText("Annotation here:")
         self.queryAnnotate.move(735, 333)
         self.queryAnnotate.resize(800, 567)
+        self.queryAnnotate.setText("Annotation here:")
         self.queryAnnotate.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.queryAnnotate.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
