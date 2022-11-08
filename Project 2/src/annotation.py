@@ -140,7 +140,7 @@ def transverse_plan(plan):
         for p in plan['Plans']:
             yield from transverse_plan(p)
 
-# added new function to explain why an algoritm is chosen (remove this later)
+# added new function to explain why an algorithm is chosen (remove this later)
 def explain(algo):
     if algo == 'Nested loop':
         statement = "(to be added)"
@@ -301,6 +301,7 @@ def find_query_node(query: dict, result: dict) -> bool:
     
     elif result['Type'] == 'Scan':  
         annotated = False
+        
         if type(query['from']) is str:
             if query['from'] == result['Name'] and query['from'] == result['Alias']:
                 query['from'] = {
@@ -356,14 +357,7 @@ def transverse_query(query: dict, plan: dict):
     for outcome in transverse_plan(plan):  
         find_query_node(query, outcome)
 
-# did not change much
 def process(conn, query):
-    """
-    process given query, returned formatted query with its annotation
-    :param conn:
-    :param query:
-    :return: formatted_query, annotation
-    """
     query = preprocess_query_string(query)
     current = conn.cursor()
     plan = get_query_execution_plan(current, query)
