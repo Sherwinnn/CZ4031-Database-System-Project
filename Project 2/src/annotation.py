@@ -35,7 +35,7 @@ def get_query_execution_plan(cursor, sql_query):
     result = cursor.fetchone()
     return result
 
-# did not change much, added cost
+# did not change much, added cost and index name
 def transverse_plan(plan):
     logging.debug(f"current in {plan['Node Type']}")
     
@@ -109,9 +109,9 @@ def transverse_plan(plan):
             'Name': plan['Relation Name'],
             'Alias': plan['Alias'],
             'Filter': ' AND '.join(filter()),
+            'Index' : plan['Index Name'],
             'Cost': plan['Total Cost'],
         }
-
     
     elif plan['Node Type'] == 'Bitmap Index Scan':
         yield {
@@ -120,6 +120,7 @@ def transverse_plan(plan):
             'Name': plan['Index Name'],
             'Alias': '',
             'Filter': plan.get('Index Cond', ''),
+            'Index' : plan['Index Name'],
             'Cost': plan['Total Cost'],
         }
     
@@ -130,6 +131,7 @@ def transverse_plan(plan):
             'Name': plan['Relation Name'],
             'Alias': plan['Alias'],
             'Filter': plan.get('Filter', ''),
+            'Index' : plan['Index Name'],
             'Cost': plan['Total Cost'],
         }
         for p in plan['Plans']:
@@ -141,7 +143,8 @@ def transverse_plan(plan):
             yield from transverse_plan(p)
 
 # added new function to explain why an algorithm is chosen (remove this later)
-def explain(algo):
+def explain(result):
+    algo = result['Subtype']
     if algo == 'Nested loop':
         statement = "(to be added)"
     elif algo == 'Hash join':
@@ -151,11 +154,11 @@ def explain(algo):
     elif algo == 'Sequence scan':
         statement = "(to be added)"
     elif algo == 'Index scan' or algo == 'Index only scan':
-        statement = "This is used because index exists."
+        statement = f"This is used because index ({result['Index']}) exists."
     elif algo == 'Bitmap index scan':
-        statement = "This is used both tables have indexes."
+        statement = f"This is used because both tables have indexes ({result['Index']})."
     elif algo == 'Bitmap heap scan':
-        statement = "This is used both tables have indexes."
+        statement = f"This is used because both tables have indexes ({result['Index']})."
     else:
         statement = ''
     return statement
@@ -163,11 +166,11 @@ def explain(algo):
 def format_ann(result: dict):
     # marker for annotation
     if result['Type'] == 'Join':
-        return f"{result['Subtype']} on {result['Filter']}, total cost is {result['Cost']}. {explain(result['Subtype'])}"
+        return f"{result['Subtype']} on {result['Filter']}, total cost is {result['Cost']}. {explain(result)}"
     
     #marker for annotation
     elif result['Type'] == 'Scan':
-        return f"Filtered by {result['Subtype']} of {result['Name']}, total cost is {result['Cost']}. {explain(result['Subtype'])}"
+        return f"Filtered by {result['Subtype']} of {result['Name']}, total cost is {result['Cost']}. {explain(result)}"
 
 # did not change
 def parse_expr_node(query: dict, result: dict) -> bool:
@@ -307,7 +310,7 @@ def find_query_node(query: dict, result: dict) -> bool:
                 query['from'] = {
                     'value': query['from'],
                     # marker for annotation
-                    'ann': f"{result['Subtype']} of {result['Name']}, total cost is {result['Cost']}. {explain(result['Subtype'])}"
+                    'ann': f"{result['Subtype']} of {result['Name']}, total cost is {result['Cost']}. {explain(result)}"
                 }
                 annotated = True
         
@@ -320,7 +323,7 @@ def find_query_node(query: dict, result: dict) -> bool:
                     'name', '') == result['Alias']:
                 annotated = True
                 # marker for annotation
-                query['from']['ann'] = f"{result['Subtype']} of {result['Name']} as {result['Alias']}, total cost is {result['Cost']}. {explain(result['Subtype'])}"
+                query['from']['ann'] = f"{result['Subtype']} of {result['Name']} as {result['Alias']}, total cost is {result['Cost']}. {explain(result)}"
         
         elif type(query['from']) is list:
             for i, rel in enumerate(query['from']):
@@ -329,7 +332,7 @@ def find_query_node(query: dict, result: dict) -> bool:
                         query['from'][i] = {
                             'value': rel,
                             # marker for annotation
-                            'ann': f"{result['Subtype']} on {result['Name']}, total cost is {result['Cost']}. {explain(result['Subtype'])}"
+                            'ann': f"{result['Subtype']} on {result['Name']}, total cost is {result['Cost']}. {explain(result)}"
                         }
                         annotated = True
                         break
@@ -342,7 +345,7 @@ def find_query_node(query: dict, result: dict) -> bool:
                     assert type(rel['value']) is str
                     if rel['value'] == result['Name'] and rel.get('name', '') == result['Alias']:
                         # marker for annotation
-                        rel['ann'] = f"{result['Subtype']} {result['Name']} as {result['Alias']} , total cost is {result['Cost']}. {explain(result['Subtype'])}"
+                        rel['ann'] = f"{result['Subtype']} {result['Name']} as {result['Alias']} , total cost is {result['Cost']}. {explain(result)}"
                         annotated = True
                         break
         
