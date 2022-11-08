@@ -8,7 +8,7 @@ from mo_sql_parsing import parse, format
 
 from preprocessing import preprocess_query_string, preprocess_query_tree
 
-
+# did not change (might need to change .env file if making changes)
 def import_config():
     load_dotenv()
     db_uname = os.getenv("DB_UNAME")
@@ -17,66 +17,87 @@ def import_config():
     db_port = os.getenv("DB_PORT")
     return  db_uname, db_pass, db_host, db_port
 
-
+# did not change
 def open_db(db_name, db_uname, db_pass, db_host, db_port):
     conn = psycopg2.connect(database=db_name, user=db_uname, password=db_pass, host=db_host, port=db_port)
     conn.set_session(readonly=True, autocommit=True)
     return conn
 
+# did not change
+def init_conn(db_name):
+    db_uname, db_pass, db_host, db_port = import_config()
+    conn = open_db(db_name, db_uname, db_pass, db_host, db_port)
+    return conn
 
 def get_query_execution_plan(cursor, sql_query):
-    cursor.execute(f"EXPLAIN  (VERBOSE TRUE, COSTS FALSE, FORMAT JSON) {sql_query}")
-    return cursor.fetchone()
+    # to execute the given sql operation
+    cursor.execute(f"EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
+    result = cursor.fetchone()
+    return result
 
-
+# did not change much, added cost
 def transverse_plan(plan):
-    logging.debug(f"now in {plan['Node Type']}")
+    logging.debug(f"current in {plan['Node Type']}")
+    
     if plan['Node Type'] == 'Nested Loop':
-        assert len(plan['Plans']) == 2, "Length of Plans is more than two."
+        # to check if the length of plans is two
+        assert len(plan['Plans']) == 2, "Length of plans is more than two."
+        
         if 'Join Filter' in plan:
             yield {
                 'Type': 'Join',
-                'Subtype': plan['Node Type'],
+                'Subtype': 'Nested loop',
                 'Filter': plan['Join Filter'],
+                'Cost': plan['Total Cost'],
             }
-        else:  # else can try heuristic to recover join condition IF both children are scan
+        else: 
             yield {
                 'Type': 'Join',
-                'Subtype': plan['Node Type'],
-                'Filter': '',  # can also not include
-                'Possible LHS': plan['Plans'][0]['Output'],
-                'Possible RHS': plan['Plans'][1]['Output'],
+                'Subtype': 'Nested loop',
+                'LHS': plan['Plans'][0]['Output'],
+                'RHS': plan['Plans'][1]['Output'],
+                'Cost': plan['Total Cost'],
             }
+        
         yield from transverse_plan(plan['Plans'][0])
         yield from transverse_plan(plan['Plans'][1])
+    
     elif plan['Node Type'] == 'Hash Join':
+        assert len(plan['Plans']) == 2, "Length of plans is more than two."
+
         yield {
             'Type': 'Join',
-            'Subtype': plan['Node Type'],
+            'Subtype': 'Hash join',
             'Filter': plan['Hash Cond'],
+            'Cost': plan['Total Cost'],
         }
-        assert len(plan['Plans']) == 2, "Length of Plans is more than two."
+
         yield from transverse_plan(plan['Plans'][0])
         yield from transverse_plan(plan['Plans'][1])
+
     elif plan['Node Type'] == 'Merge Join':
         yield {
             'Type': 'Join',
-            'Subtype': plan['Node Type'],
+            'Subtype': 'Merge join',
             'Filter': plan['Merge Cond'],
+            'Cost': plan['Total Cost'],
         }
 
         for p in plan['Plans']:
             yield from transverse_plan(p)
+    
     elif plan['Node Type'] == 'Seq Scan':
         yield {
             'Type': 'Scan',
-            'Subtype': plan['Node Type'],
+            'Subtype': 'Sequence scan',
             'Name': plan['Relation Name'],
             'Alias': plan['Alias'],
             'Filter': plan.get('Filter', ''),
+            'Cost': plan['Total Cost'],
         }
+    
     elif plan['Node Type'] in ['Index Scan', 'Index Only Scan']:
-        def _f():
+        def filter():
             if 'Index Cond' in plan:
                 yield plan['Index Cond']
             if 'Filter' in plan:
@@ -84,44 +105,71 @@ def transverse_plan(plan):
 
         yield {
             'Type': 'Scan',
-            'Subtype': plan['Node Type'],
+            'Subtype': 'Index scan',
             'Name': plan['Relation Name'],
             'Alias': plan['Alias'],
-            'Filter': ' AND '.join(_f()),
-            # 'Filter': ' AND'.join([plan.get('Index Cond', None), plan.get('Filter', None)]),
+            'Filter': ' AND '.join(filter()),
+            'Cost': plan['Total Cost'],
         }
 
+    
     elif plan['Node Type'] == 'Bitmap Index Scan':
         yield {
             'Type': 'Scan',
-            'Subtype': plan['Node Type'],
+            'Subtype': 'Bitmap index scan',
             'Name': plan['Index Name'],
             'Alias': '',
             'Filter': plan.get('Index Cond', ''),
+            'Cost': plan['Total Cost'],
         }
+    
     elif plan['Node Type'] == 'Bitmap Heap Scan':
         yield {
             'Type': 'Scan',
-            'Subtype': plan['Node Type'],
+            'Subtype': 'Bitmap heap scan',
             'Name': plan['Relation Name'],
             'Alias': plan['Alias'],
             'Filter': plan.get('Filter', ''),
+            'Cost': plan['Total Cost'],
         }
         for p in plan['Plans']:
             yield from transverse_plan(p)
+    
     else:
         logging.warning(f"WARNING: Unimplemented Node Type {plan['Node Type']}")
         for p in plan['Plans']:
             yield from transverse_plan(p)
 
+# added new function to explain why an algoritm is chosen (remove this later)
+def explain(algo):
+    if algo == 'Nested loop':
+        statement = "(to be added)"
+    elif algo == 'Hash join':
+        statement = "(to be added)"
+    elif algo == 'Merge join':
+        statement = "(to be added)"
+    elif algo == 'Sequence scan':
+        statement = "(to be added)"
+    elif algo == 'Index scan' or algo == 'Index only scan':
+        statement = "This is used because index exists."
+    elif algo == 'Bitmap index scan':
+        statement = "This is used both tables have indexes."
+    elif algo == 'Bitmap heap scan':
+        statement = "This is used both tables have indexes."
+    else:
+        statement = ''
+    return statement
 
-def format_ann(result: dict, use_alias=False):
+def format_ann(result: dict):
+    # marker for annotation
     if result['Type'] == 'Join':
-        return f"{result['Subtype']} on {result['Filter']}"
+        return f"{result['Subtype']} on {result['Filter']}, total cost is {result['Cost']}. {explain(result['Subtype'])}"
+    
+    #marker for annotation
     elif result['Type'] == 'Scan':
-        return f"Filtered on {result['Subtype']} of {result['Name']}"
+        return f"Filtered by {result['Subtype']} of {result['Name']}, total cost is {result['Cost']}. {explain(result['Subtype'])}"
 
-
+# did not change
 def parse_expr_node(query: dict, result: dict) -> bool:
     # logging.info(f'query={query}, result={result}')
     """
@@ -220,42 +268,48 @@ def parse_expr_node(query: dict, result: dict) -> bool:
     else:
         raise NotImplementedError(f'{op}')
 
-
+# did not change much, added cost and explanation
 def find_query_node(query: dict, result: dict) -> bool:
-    # logging.info(f'query={query}, result={result}')
-    if result['Type'] == 'Join':  # look at WHERE
+    # a joining operation
+    if result['Type'] == 'Join': 
+        # condition stated in where
         if 'where' in query:
+            # did not specify condition
             if result['Filter'] == '':
-                # For Nested Loop without explicit Filter, we try to find the condition by matching column names
-                possible_cond = []
-                for cond in [f'{x} = {y}' for x in result['Possible LHS'] for y in result['Possible RHS']]:
-                    result['Filter'] = cond
+                possible_conditions = []
+                for condition in [f'{x} = {y}' for x in result['LHS'] for y in result['RHS']]:
+                    result['Filter'] = condition
                     if parse_expr_node(query['where'], result):
-                        possible_cond.append(cond)
-                assert len(possible_cond) <= 1, "MORE THAN ONE POSSIBLE CONDITION"
-                if len(possible_cond) == 1:
+                        possible_conditions.append(condition)
+                assert len(possible_conditions) <= 1, "There are more than one possible conditions"
+                
+                if len(possible_conditions) == 1:
                     return True
             else:
                 if parse_expr_node(query['where'], result):
                     return True
+        
         if type(query['from']) is dict and type(query['from']['value']) is dict:
             if find_query_node(query['from']['value'], result):
                 return True
+        
         if type(query['from']) is list:
             for v in query['from']:
                 if type(v) is dict and type(v['value']) is dict:
                     if find_query_node(v['value'], result):
                         return True
-    elif result['Type'] == 'Scan':  # look at FROM
-        # goto from
+    
+    elif result['Type'] == 'Scan':  
         annotated = False
         if type(query['from']) is str:
             if query['from'] == result['Name'] and query['from'] == result['Alias']:
                 query['from'] = {
                     'value': query['from'],
-                    'ann': f"{result['Subtype']} {result['Name']}"
+                    # marker for annotation
+                    'ann': f"{result['Subtype']} of {result['Name']}, total cost is {result['Cost']}. {explain(result['Subtype'])}"
                 }
                 annotated = True
+        
         elif type(query['from']) is dict:
             if type(query['from']['value']) is dict:
                 if find_query_node(query['from']['value'], result):
@@ -264,14 +318,17 @@ def find_query_node(query: dict, result: dict) -> bool:
             elif type(query['from']['value']) is str and query['from']['value'] == result['Name'] and query['from'].get(
                     'name', '') == result['Alias']:
                 annotated = True
-                query['from']['ann'] = f"{result['Subtype']} {result['Name']} as {result['Alias']}"
+                # marker for annotation
+                query['from']['ann'] = f"{result['Subtype']} of {result['Name']} as {result['Alias']}, total cost is {result['Cost']}. {explain(result['Subtype'])}"
+        
         elif type(query['from']) is list:
             for i, rel in enumerate(query['from']):
                 if type(rel) is str:
                     if rel == result['Name'] and rel == result['Alias']:
                         query['from'][i] = {
                             'value': rel,
-                            'ann': f"{result['Subtype']} {result['Name']}"
+                            # marker for annotation
+                            'ann': f"{result['Subtype']} on {result['Name']}, total cost is {result['Cost']}. {explain(result['Subtype'])}"
                         }
                         annotated = True
                         break
@@ -283,26 +340,23 @@ def find_query_node(query: dict, result: dict) -> bool:
                         continue
                     assert type(rel['value']) is str
                     if rel['value'] == result['Name'] and rel.get('name', '') == result['Alias']:
-                        rel['ann'] = f"{result['Subtype']} {result['Name']} as {result['Alias']}"
+                        # marker for annotation
+                        rel['ann'] = f"{result['Subtype']} {result['Name']} as {result['Alias']} , total cost is {result['Cost']}. {explain(result['Subtype'])}"
                         annotated = True
                         break
-        # if filter exist, goto where
+        
+        # filter exixts
         if result['Filter'] != '' and 'where' in query:
             parse_expr_node(query['where'], result)
         return annotated
+
     return False
 
 def transverse_query(query: dict, plan: dict):
-    for result in transverse_plan(plan):  # iterate over node in root
-        find_query_node(query, result)
+    for outcome in transverse_plan(plan):  
+        find_query_node(query, outcome)
 
-
-def init_conn(db_name):
-    db_uname, db_pass, db_host, db_port = import_config()
-    conn = open_db(db_name, db_uname, db_pass, db_host, db_port)
-    return conn
-
-
+# did not change much
 def process(conn, query):
     """
     process given query, returned formatted query with its annotation
@@ -310,17 +364,20 @@ def process(conn, query):
     :param query:
     :return: formatted_query, annotation
     """
-    cur = conn.cursor()
     query = preprocess_query_string(query)
-    plan = get_query_execution_plan(cur, query)
+    current = conn.cursor()
+    plan = get_query_execution_plan(current, query)
     parsed_query = parse(query)
-    preprocess_query_tree(cur, parsed_query)
+    
+    preprocess_query_tree(current, parsed_query)
     transverse_query(parsed_query, plan[0][0]['Plan'])
+    
     result = []
     reparse_query(result, parsed_query)
+    
     return [q['statement'] for q in result], [q['annotation'] for q in result]
 
-
+# did not change
 def reparse_without_expand(statement_dict):
     temp = []
     annotation = get_annotation(statement_dict)
@@ -330,71 +387,65 @@ def reparse_without_expand(statement_dict):
     temp.append(format_query(statement, annotation))
     return temp
 
-
 def format_keyword_special(statement_dict):
-    formatted = format(statement_dict)
-    return formatted.split('""', 1)[1].strip()
-
+    changed = format(statement_dict)
+    return changed.split('""', 1)[1].strip()
 
 def get_annotation(statement_dict):
-    return '' if 'ann' not in statement_dict.keys() else statement_dict['ann']
-
+    if 'ann' not in statement_dict.keys():
+        return ''
+    else:
+        return statement_dict['ann']
 
 def get_name(statement_dict):
-    return None if 'name' not in statement_dict.keys() else statement_dict['name']
+    if 'name' not in statement_dict.keys():
+        return None
+    else:
+        return statement_dict['name']
 
-
+# keyword in function name can change to aggregate later
 def find_keyword_operation(statement_dict: dict):
-    keyword_ops = {'sum', 'count', 'avg', 'coalesce', 'min', 'max'}
-    for op in keyword_ops:
-        if op in statement_dict.keys():
-            return op
+    aggregate = {'sum', 'count', 'min', 'max', 'avg', 'coalesce'}
+    for operation in aggregate:
+        if operation in statement_dict.keys():
+            return operation
     return None
-
 
 def find_arithmetic_operation(statement_dict: dict):
-    symbol_ops = {'mul', 'sub', 'add', 'div', 'mod'}
-    for op in symbol_ops:
-        if op in statement_dict.keys():
-            return op
+    arithmetic = {'mul', 'sub', 'add', 'div', 'mod'}
+    for operation in arithmetic:
+        if operation in statement_dict.keys():
+            return operation
     return None
-
 
 def find_conjunction_operation(statement_dict: dict):
-    conj_ops = {'and', 'or'}
-    for op in conj_ops:
-        if op in statement_dict.keys():
-            return op
+    conjunction = {'and', 'or'}
+    for operation in conjunction:
+        if operation in statement_dict.keys():
+            return operation
     return None
-
 
 def find_comparison_operation(statement_dict: dict):
-    comp_ops = {
-        'gt',
-        'lt',
-        'eq',
-        'neq',
-        'gte',
-        'lte',
-        'like',
-        'not_like',
-        'in',
-        'nin'
+    comparison = {
+        'gt', 'lt',
+        'gte', 'lte',
+        'in','nin'
+        'like', 'not_like',
+        'eq', 'neq',
     }
-    for op in comp_ops:
-        if op in statement_dict.keys():
-            return op
+    for operation in comparison:
+        if operation in statement_dict.keys():
+            return operation
     return None
-
 
 def find_datetime_operation(statement_dict: dict):
-    datetime_ops = {'date', 'interval', 'time', 'timestamp'}
-    for op in datetime_ops:
-        if op in statement_dict.keys():
-            return op
+    datetime = {'time', 'timestamp', 'date', 'interval'}
+    for operation in datetime:
+        if operation in statement_dict.keys():
+            return operation
     return None
 
-
+# ----------- from here onwards are mostly parse and reparse functions, so I did not change anything from here onwards ------------------------------------
 def reparse_literal(value: any):
     if type(value) is str:
         return "'" + value + "'"

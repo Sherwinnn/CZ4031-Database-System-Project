@@ -1,0 +1,4 @@
+mo-future==6.2.21303
+
+[tests]
+mo-logs

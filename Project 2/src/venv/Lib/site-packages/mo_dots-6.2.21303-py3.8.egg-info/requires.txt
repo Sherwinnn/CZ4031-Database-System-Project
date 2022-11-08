@@ -1,0 +1,12 @@
+mo-future==6.2.21303
+mo-imports==6.2.21303
+
+[tests]
+mo-logs
+mo-json
+mo-threads
+mo-testing
+pyLibrary
+mo-math
+mo-times
+jx-elasticsearch
