@@ -1,5 +1,6 @@
 import logging
 import os
+import queue
 from pprint import pprint, pformat
 
 import psycopg2
@@ -132,7 +133,8 @@ def transverse_plan(plan):
             'Name': plan['Relation Name'],
             'Alias': plan['Alias'],
             'Filter': plan.get('Filter', ''),
-            'Index' : plan['Index Name'],
+           # 'Index' : plan['Index Name'], 
+           # heapscan doesnt have the key Index 
             'Cost': plan['Total Cost'],
         }
         for p in plan['Plans']:
@@ -147,19 +149,19 @@ def transverse_plan(plan):
 def explain(result):
     algo = result['Subtype']
     if algo == 'Nested loop':
-        statement = "(to be added)"
+        statement = "Nested loop is used because it is less costly when joining smaller tables / The join condition does not use the equality operator."
     elif algo == 'Hash join':
-        statement = "(to be added)"
+        statement = "Hash join is used because the join condition uses equality operator and both sides of the join are large."
     elif algo == 'Merge join':
-        statement = "(to be added)"
+        statement = "Merge join is used because both sides of the join are large and can be sorted on the join condition efficiently."
     elif algo == 'Sequence scan':
-        statement = "(to be added)"
+        statement = "Sequential scan is used since there is no index on the table"
     elif algo == 'Index scan' or algo == 'Index only scan':
         statement = f"This is used because index ({result['Index']}) exists."
     elif algo == 'Bitmap index scan':
         statement = f"This is used because both tables have indexes ({result['Index']})."
     elif algo == 'Bitmap heap scan':
-        statement = f"This is used because both tables have indexes ({result['Index']})."
+        statement = f"This is used because both tables have indexes."
     else:
         statement = ''
     return statement
@@ -167,7 +169,7 @@ def explain(result):
 def format_ann(result: dict):
     # marker for annotation
     if result['Type'] == 'Join':
-        return f"{result['Subtype']} on {result['Filter']}, total cost is {result['Cost']}. {explain(result)}"
+        return f"Perform {result['Subtype']} on {result['Filter']}, total cost is {result['Cost']}. {explain(result)}"
     
     #marker for annotation
     elif result['Type'] == 'Scan':
@@ -184,14 +186,14 @@ def parse_expr_node(query: dict, result: dict) -> bool:
         return outcome
     #dictionary of comparison operations in query dictionary keys
     comp_ops = {
-        'greater_than': (' > ', ' < '),
-        'less_than': (' < ', ' > '),
-        'equal': (' = ', ' = '),
-        'n_equal': (' <> ', ' <> '),
-        'greater&equal': (' >= ', ' <= '),
-        'less&equal': (' <= ', ' >= '),
+        'gt': (' > ', ' < '),
+        'lt': (' < ', ' > '),
+        'eq': (' = ', ' = '),
+        'neq': (' <> ', ' <> '),
+        'gte': (' >= ', ' <= '),
+        'lte': (' <= ', ' >= '),
         'like': (' ~~ ', ' ~~ '),
-        'n_like': (' !~~ ', ' !~~ '),
+        'not_like': (' !~~ ', ' !~~ '),
     }
     op = list(query.keys())[0]
     # if theres 'and' or 'or', there are likely subqueries to parse
@@ -388,7 +390,8 @@ def reparse_without_expand(statement_dict):
 
 def format_keyword_special(statement_dict):
     changed = format(statement_dict)
-    return changed.split('""', 1)[1].strip()
+    print('changed: ', changed)
+    return changed.split('""', 1)[0].strip()
 
 def get_annotation(statement_dict):
     if 'ann' not in statement_dict.keys():
@@ -426,11 +429,11 @@ def find_conjunction_operation(statement_dict: dict):
 
 def find_comparison_operation(statement_dict: dict):
     comparison = {
-        'greater_than', 'less_than',
-        'greater&equal', 'less&equal',
+        'gt', 'lt',
+        'gte', 'lte',
         'in','nin'
-        'like', 'n_like',
-        'equal', 'n_equal',
+        'like', 'not_like',
+        'eq', 'neq',
     }
 
 
@@ -650,15 +653,15 @@ def reparse_comparison_operation(statement_dict: dict, comp_op: str):
         temp_list.extend(reparse_without_expand(statement_dict))
         return temp_list
 
-    comparison_ops = {
-        'greater_than': '>',
-        'less_than': '<',
-        'equal': '=',
-        'n_equal': '<>',
-        'greater&equal': '>=',
-        'less&equal': '<=',
+    comp_ops = {
+        'gt': '>',
+        'lt': '<',
+        'eq': '=',
+        'neq': '<>',
+        'gte': '>=',
+        'lte': '<=',
         'like': 'LIKE',
-        'n_like': 'NOT LIKE',
+        'not_like': 'NOT LIKE',
         'in': 'IN',
         'nin': 'NOT IN'
     }
@@ -824,7 +827,7 @@ def reparse_from_keyword(formatted_query: list, identifier: any, last_identifier
         temp_list.append(format_query(statement))
     elif type(identifier) is list:
         for i, single_identifier in enumerate(identifier):
-            reparse_from_keyword(temp, single_identifier, i == len(identifier) - 1)
+            reparse_from_keyword(temp_list, single_identifier, i == len(identifier) - 1)
 
     formatted_query.extend(temp_list)
 
@@ -895,11 +898,110 @@ def annotate_query(parsed_query: dict):
     reparse_query(formatted_query, parsed_query)
     return formatted_query
 
+# added method to check what nodes types have been used in the first qep generated
+#output is a list of nodes that are used in the query plan
+def get_used_node_types(plan):
+    child_plans = queue.Queue()
+    parent_plans = queue.Queue()
+    child_plans.put(plan)
+    parent_plans.put(None)
+    nodes_used = []
+    
+    while not child_plans.empty():
+        curr_plan = child_plans.get()
+        parentNode = parent_plans.get()
+
+        curr_node = curr_plan['Node Type']
+        nodes_used.append(curr_node)
+
+        if 'Plans' in curr_plan:
+            for item in curr_plan['Plans']:
+                # add children plans to the child queue
+                child_plans.put(item)
+                parent_plans.put(curr_node)
+
+    return nodes_used
+
+# added method to generate aqp 
+def generate_alternative_qep(cursor, sql_query, nodes_used):
+    # generate an alternative qep
+    # remove the node types that were used in the previous query plan
+    cond = None
+    cond2 = None
+    #check for scans first
+
+    if 'Index Scan' in nodes_used:
+        cond = "enable_indexscan"
+    elif 'Seq Scan' in nodes_used:
+        cond = "enable_seqscan"
+    elif 'Bitmap Index Scan' in nodes_used:
+        cond = "enable_bitmapscan"
+    elif 'Bitmap Heap Scan' in nodes_used:
+        cond = "enable_bitmapscan"
+    print('cond is: ', cond)
+    
+    # check for joins
+
+    if 'Hash Join' in nodes_used:
+        cond2 = "enable_hashjoin"
+    elif 'Merge Join' in nodes_used:
+        cond2 = "enable_mergejoin"
+    elif 'Nested Loop' in nodes_used:
+        cond2 = "enable_nestloop"
+    
+    print('cond 2 is :', cond2)
+
+    # for node in nodes_used:
+    #     print('this is in nodes_used:', node)
+        
+    #     #check for scans first
+    #     if node == 'Index Scan' and cond == None:
+    #         cond = "enable_indexscan"
+    #     elif node == 'Seq Scan' and cond == None:
+    #         cond = "enable_seqscan"
+    #     elif node == 'Bitmap Index Scan' and cond == None:
+    #         cond = "enable_bitmapscan"
+    #     elif node == 'Bitmap Heap Scan' and cond == None:
+    #         cond = "enable_bitmapscan"
+    #     # check for joins
+    #     if node == 'Hash Join' and cond2 == None:
+    #         cond2 = "enable_hashjoin"
+    #     elif node == 'Merge Join' and cond2 == None:
+    #         cond2 = "enable_mergejoin"
+    #     elif node == 'Nested Loop' and cond2 == None:
+    #         cond2 = "enable_nestloop"
+        # disable conditions accordingly when generating aqp
+    print('the following conditions are turned off:', cond, ' and ', cond2)
+    if cond is not None and cond2 is not None:
+        cursor.execute(f"set {cond} = 'off'; set {cond2} = 'off'; EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
+        result = cursor.fetchone()
+        return result
+    elif cond is not None and cond2 is None:
+        cursor.execute(f"set {cond} = 'off'; EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
+        result = cursor.fetchone()
+        return result
+    elif cond is None and cond2 is not None:
+        cursor.execute(f"set {cond2} = 'off'; EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
+        result = cursor.fetchone()
+        return result
+
+# def get_query_execution_plan(cursor, sql_query):
+#     # to execute the given sql operation
+#     cursor.execute(f"EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
+#     result = cursor.fetchone()
+#     return result
+
 
 def main():
-    logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
-    conn = init_conn("TPC-H")
+ #   logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
+   '''
+   make sure you change this to your postgresql database name before running
+   '''
+   # conn = init_conn("TPC-H")
+    conn = init_conn('mydatabase')
     cur = conn.cursor()
+
+    print('connected')
 
     queries = [
         # Test cases
@@ -921,37 +1023,47 @@ def main():
         "SELECT  DISTINCT c.c_custkey FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
 
         # http://www.qdpma.com/tpch/TPCH100_Query_plans.html
-        """SELECT L_RETURNFLAG, L_LINESTATUS, SUM(L_QUANTITY) AS SUM_QTY,
- SUM(L_EXTENDEDPRICE) AS SUM_BASE_PRICE, SUM(L_EXTENDEDPRICE*(1-L_DISCOUNT)) AS SUM_DISC_PRICE,
- SUM(L_EXTENDEDPRICE*(1-L_DISCOUNT)*(1+L_TAX)) AS SUM_CHARGE, AVG(L_QUANTITY) AS AVG_QTY,
- AVG(L_EXTENDEDPRICE) AS AVG_PRICE, AVG(L_DISCOUNT) AS AVG_DISC, COUNT(*) AS COUNT_ORDER
-FROM LINEITEM
-WHERE L_SHIPDATE <= date '1998-12-01' + interval '-90 day'
-GROUP BY L_RETURNFLAG, L_LINESTATUS
-ORDER BY L_RETURNFLAG,L_LINESTATUS""",
-        """SELECT S_ACCTBAL, S_NAME, N_NAME, P_PARTKEY, P_MFGR, S_ADDRESS, S_PHONE, S_COMMENT
-FROM PART, SUPPLIER, PARTSUPP, NATION, REGION
-WHERE P_PARTKEY = PS_PARTKEY AND S_SUPPKEY = PS_SUPPKEY AND P_SIZE = 15 AND
-P_TYPE LIKE '%%BRASS' AND S_NATIONKEY = N_NATIONKEY AND N_REGIONKEY = R_REGIONKEY AND
-R_NAME = 'EUROPE' AND
-PS_SUPPLYCOST = (SELECT MIN(PS_SUPPLYCOST) FROM PARTSUPP, SUPPLIER, NATION, REGION
- WHERE P_PARTKEY = PS_PARTKEY AND S_SUPPKEY = PS_SUPPKEY
- AND S_NATIONKEY = N_NATIONKEY AND N_REGIONKEY = R_REGIONKEY AND R_NAME = 'EUROPE')
-ORDER BY S_ACCTBAL DESC, N_NAME, S_NAME, P_PARTKEY
-LIMIT 100;""",
+#         """SELECT l.L_RETURNFLAG, l.L_LINESTAATUS, SUM(l.L_QUANTITY) AS SUM_QTY,
+#  SUM(l.L_EXTENDEDPRICE) AS SUM_BASE_PRICE, SUM(l.L_EXTENDEDPRICE*(1-L_DISCOUNT)) AS SUM_DISC_PRICE,
+#  SUM(l.L_EXTENDEDPRICE*(1-l.L_DISCOUNT)*(1+l.L_TAX)) AS SUM_CHARGE, AVG(l.L_QUANTITY) AS AVG_QTY,
+#  AVG(l.L_EXTENDEDPRICE) AS AVG_PRICE, AVG(l.L_DISCOUNT) AS AVG_DISC, COUNT(*) AS COUNT_ORDER
+# FROM LINEITEM AS l
+# WHERE l.L_SHIPDATE <= date '1998-12-01' + interval '-90 day'
+# GROUP BY l.L_RETURNFLAG, l.L_LINESTAATUS
+# ORDER BY l.L_RETURNFLAG,l.L_LINESTAATUS""",
+#         """SELECT S_ACCTBAL, S_NAME, N_NAME, P_PARTKEY, P_MFGR, S_ADDRESS, S_PHONE, S_COMMENT
+# FROM PART, SUPPLIER, PARTSUPP, NATION, REGION
+# WHERE P_PARTKEY = PS_PARTKEY AND S_SUPPKEY = PS_SUPPKEY AND P_SIZE = 15 AND
+# P_TYPE LIKE '%%BRASS' AND S_NATIONKEY = N_NATIONKEY AND N_REGIONKEY = R_REGIONKEY AND
+# R_NAME = 'EUROPE' AND
+# PS_SUPPLYCOST = (SELECT MIN(PS_SUPPLYCOST) FROM PARTSUPP, SUPPLIER, NATION, REGION
+#  WHERE P_PARTKEY = PS_PARTKEY AND S_SUPPKEY = PS_SUPPKEY
+#  AND S_NATIONKEY = N_NATIONKEY AND N_REGIONKEY = R_REGIONKEY AND R_NAME = 'EUROPE')
+# ORDER BY S_ACCTBAL DESC, N_NAME, S_NAME, P_PARTKEY
+# LIMIT 100;""",
     ]
 
     for query in queries:
         print("==========================")
         query = preprocess_query_string(query)  # assume all queries are case insensitive
-        logging.debug(query)
+        print('query: \n')
+        print(query)
+        print('\n')
+     #   logging.debug(query)
         plan = get_query_execution_plan(cur, query)
+        print('plan:')
+        print('\n')
+        print(plan) 
         parsed_query = parse(query)
+        print('parsed query:')
+        print('\n')
+        print(parsed_query)
         try:
             preprocess_query_tree(cur, parsed_query)
             transverse_query(parsed_query, plan[0][0]['Plan'])
             result = []
             reparse_query(result, parsed_query)
+
         except Exception as e:
             logging.error(e, exc_info=True)
             logging.debug(pformat(query))
@@ -959,8 +1071,29 @@ LIMIT 100;""",
             logging.debug(pformat(plan))
             raise e
         else:
+            print('below is parsed query: \n')
             pprint(parsed_query, sort_dicts=False)
+            print('below is QEP generated: \n')
             pprint(result)
+
+        # getting AQP
+        try:
+            nodes_used = get_used_node_types(plan[0][0]['Plan'])
+            print(nodes_used)
+            parsed_query_aqp = parse(query)
+            aqp = generate_alternative_qep(cur, query, nodes_used)
+            print('\n aqp plan is as follows:')
+            print(aqp)
+            preprocess_query_tree(cur, parsed_query_aqp)
+            transverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
+            aqp_result = []
+            reparse_query(aqp_result, parsed_query_aqp)
+        except Exception as e:
+            raise e
+        else:
+            print('\n Below is AQP generated: \n')
+            pprint(aqp_result)
+
         print()
 
     cur.close()
