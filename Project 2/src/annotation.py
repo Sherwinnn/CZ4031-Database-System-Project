@@ -54,6 +54,7 @@ def transverse_plan(plan):
             yield {
                 'Type': 'Join',
                 'Subtype': 'Nested loop',
+                'Filter': '',
                 'LHS': plan['Plans'][0]['Output'],
                 'RHS': plan['Plans'][1]['Output'],
                 'Cost': plan['Total Cost'],
@@ -285,7 +286,6 @@ def find_query_node(query: dict, result: dict) -> bool:
                     if parse_expr_node(query['where'], result):
                         possible_conditions.append(condition)
                 assert len(possible_conditions) <= 1, "There are more than one possible conditions"
-                
                 if len(possible_conditions) == 1:
                     return True
             else:
