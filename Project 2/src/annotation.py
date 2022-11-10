@@ -993,14 +993,13 @@ def generate_alternative_qep(cursor, sql_query, nodes_used):
 
 
 def main():
- #   logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
-   '''
-   make sure you change this to your postgresql database name before running
-   '''
-   # conn = init_conn("TPC-H")
-    conn = init_conn('mydatabase')
+    logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
+   
+   # make sure you change this to your postgresql database name before running
+    conn = init_conn("TPC-H")
+   # conn = init_conn('mydatabase')
     cur = conn.cursor()
-
+   
     print('connected')
 
     queries = [
