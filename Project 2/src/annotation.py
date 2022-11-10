@@ -1110,27 +1110,42 @@ def generate_differences(node1, node2):
         diff = "Merge join is chosen over hash join because the input relations are already sorted on the join attributes. Hence, each relation has to be scanned only once, making the join more efficient and less costly."
     elif node1 == "Merge Join" and node2 == "NL Join":
         diff = "Merge join is chosen over nested-loop join because the input relations are large and using nested-loop join will be inefficient and costly. Besides, the relations are already sorted on the join attributes. Hence, each relation has to be scanned only once, making the join more efficient and less costly."
+    elif node1 == "Seq Scan" and node2 == "Index Scan":
+        diff = "Sequential scan is chosen over index scan because the expected size of the output is large, hence using a sequential scan will be more efficient than using an index scan."
+    elif node1 == "Bitmap Index Scan" and node2 == "Index Scan":
+        diff = "Bitmap index scan is chosen over index scan as indexes are available and the expected size of the output is large. Bitmap index scan fetches all the tuple-pointers from the index in one go, while index scan fetches one tuple-pointer at a time from the index. Hence, using bitmap index scan is more efficient than using index scan."
+    elif node1 == "Bitmap Heap Scan" and node2 == "Index Scan":
+        diff = "Bitmap heap scan is chosen over index scan as indexes are available and the expected size of the output is large. Bitmap heap scan fetches all the tuple-pointers from the index in one go, while index scan fetches one tuple-pointer at a time from the index. Hence, using bitmap heap scan is more efficient than using index scan."
+    elif node1 == "Bitmap Index Scan" and node2 == "Seq Scan":
+        diff = "Bitmap index scan is chosen over sequential scan as indexes are available. Bitmap index scan fetches all the tuple-pointers from the index in one go and visits these desired tuples directly. Hence, it is more efficient than sequential scan which needs to check every tuples."
+    elif node1 == "Bitmap Heap Scan" and node2 == "Seq Scan":
+        diff = "Bitmap heap scan is chosen over sequential scan as indexes are available. Bitmap heap scan fetches all the tuple-pointers from the index in one go and visits these desired tuples directly. Hence, it is more efficient than sequential scan which needs to check every tuples."
+    elif node1 == "Seq Scan" and node2 == "Bitmap Index Scan":
+        diff = "Sequential scan is chosen over bitmap index scan because there is no index which can be utilized to perform bitmap index scan."
+    elif node1 == "Seq Scan" and node2 == "Bitmap Heap Scan":
+        diff = "Sequential scan is chosen over bitmap heap scan because there is no index which can be utilized to perform bitmap heap scan."
     else:
         diff = ''    
     return diff
 
     # TO DO : add more differences and comparisons (the cases i can think of are listed below)
     # case 1: index scan over seq scan (done)
-    # case 2: seq scan over index scan 
+    # case 2: seq scan over index scan (done)
     # case 3: index scan over bitmap scan (done)
-    # case 4: seq scan over bitmap scans
-    # case 5: bitmap scans over seq scan
+    # case 4: seq scan over bitmap scans 
+    # case 5: bitmap scans over seq scan (done)
     # case 6: merge join over NL join (done)
     # case 7: NL join over merge join (done)
     # case 8: merge join over hash join (done)
-    # case 9: hash join over merge join  (done)
+    # case 9: hash join over merge join (done)
     # case 10: NL join over hash join (done)
     # case 11: hash joing over NL join (done)
+    # case 12 : bitmap over index (done)
     
 
 
 def main():
- #   logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
+   # logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
    # conn = init_conn("TPC-H")
     conn = init_conn('mydatabase')
     cur = conn.cursor()
