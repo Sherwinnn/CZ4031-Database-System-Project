@@ -36,7 +36,7 @@ class MyWindow(QMainWindow):
     def __init__(self):
         #set windows
         super(MyWindow, self).__init__()
-        self.setGeometry(1,42,1580,920)
+        self.setGeometry(1,42,1470,920)
         self.setWindowTitle("CZ4031 Project 2")
 
         #textbox for query
@@ -65,33 +65,33 @@ class MyWindow(QMainWindow):
     def initUI(self):
 
         self.queryTextbox.move(25, 20)
-        self.queryTextbox.resize(860, 300)
+        self.queryTextbox.resize(800, 300)
         self.queryTextbox.setPlaceholderText('Enter SQL Query Here:')
         self.queryTextbox.setFont(QFont('Arial', 14))
 
-        self.dbLabel.move(900, 20)
+        self.dbLabel.move(840, 20)
         self.dbLabel.resize(500, 117)
         self.dbLabel.setText(f"Current DB Name: ")
 
-        self.dbTextbox.move(900, 147)
+        self.dbTextbox.move(840, 147)
         self.dbTextbox.resize(500, 50)
         self.dbTextbox.setPlaceholderText('Enter Database Name Here:')
         self.dbTextbox.setFont(QFont('Arial', 14))
 
-        self.sendButton.move(900, 220)
+        self.sendButton.move(840, 220)
         self.sendButton.resize(500, 100)
         self.sendButton.setText("Send Query")
         self.sendButton.setFont(QFont('Arial', 14))
         self.sendButton.clicked.connect(self.onClick)
      
         self.queryOutput.move(25, 333)
-        self.queryOutput.resize(700, 567)
+        self.queryOutput.resize(500, 567)
         self.queryOutput.setText("Output Query here:")
         self.queryOutput.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.queryOutput.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
-        self.queryAnnotate.move(735, 333)
-        self.queryAnnotate.resize(800, 567)
+        self.queryAnnotate.move(535, 333)
+        self.queryAnnotate.resize(900, 567)
         self.queryAnnotate.setText("Annotation here:")
         self.queryAnnotate.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.queryAnnotate.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
