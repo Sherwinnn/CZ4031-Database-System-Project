@@ -1097,11 +1097,19 @@ def generate_differences(node1, node2):
     elif node1 == 'Index scan' and node2 == 'Bitmap index scan':
         diff = "Index scan is chosen over bitmap index scan as index condition has high selectivity, which makes index scan more efficient and less costly."
     elif node1 == "Index scan" and node2 == "Seq Scan":
-        diff = "Index scan is chosen over sequential scan as it is able to access the tuples with the desired values directly, instead of checking each tuples."
+        diff = "Index scan is chosen over sequential scan as it is able to access the tuples with the desired values directly, unlike sequential scans, which needs to check each tuples."
     elif node1 == "NL Join" and node2 == "Merge Join":
-        diff = "Nested-loop join are chosen over merge join because one of the inputs is small and so less few comparisons are needed to be done using nested loop join."
+        diff = "Nested-loop join is chosen over merge join because one of the inputs is small and so less comparisons are needed to be done using nested loop join, resulting in lower cost."
     elif node1 == "NL Join" and node2 == "Hash Join":
-        diff = "Nested-loop join are chosen over hash join because one of the inputs is small and so less few comparisons are needed to be done using nested loop join."
+        diff = "Nested-loop join is chosen over hash join because one of the inputs is small and so less comparisons are needed to be done using nested loop join, resulting in lower cost."
+    elif node1 == "Hash Join" and node2 == "Merge Join":
+        diff = "Hash join is chosen over merge join because the input relations are large and unsorted, hence using a hash join will be faster and less costly."
+    elif node1 == "Hash Join" and node2 == "NL Join":
+        diff = "Hash join is chosen over nested-loop join because the input relations are large and unsorted, hence using a hash join will be faster and less costly."
+    elif node1 == "Merge Join" and node2 == "Hash Join":
+        diff = "Merge join is chosen over hash join because the input relations are already sorted on the join attributes. Hence, each relation has to be scanned only once, making the join more efficient and less costly."
+    elif node1 == "Merge Join" and node2 == "NL Join":
+        diff = "Merge join is chosen over nested-loop join because the input relations are large and using nested-loop join will be inefficient and costly. Besides, the relations are already sorted on the join attributes. Hence, each relation has to be scanned only once, making the join more efficient and less costly."
     else:
         diff = ''    
     return diff
@@ -1112,12 +1120,12 @@ def generate_differences(node1, node2):
     # case 3: index scan over bitmap scan (done)
     # case 4: seq scan over bitmap scans
     # case 5: bitmap scans over seq scan
-    # case 6: merge join over NL join
+    # case 6: merge join over NL join (done)
     # case 7: NL join over merge join (done)
-    # case 8: merge join over hash join 
-    # case 9: hash join over merge join 
+    # case 8: merge join over hash join (done)
+    # case 9: hash join over merge join  (done)
     # case 10: NL join over hash join (done)
-    # case 11: hash joing over NL join
+    # case 11: hash joing over NL join (done)
     
 
 
