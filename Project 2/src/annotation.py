@@ -1094,24 +1094,29 @@ def generate_differences(node1, node2):
     '''
     if node1 == 'Index scan' and node2 == 'Bitmap heap scan':
         diff = "Index scan is chosen over bitmap heap scan as index condition has high selectivity, which makes index scan more efficient and less costly."
-        return diff
     elif node1 == 'Index scan' and node2 == 'Bitmap index scan':
         diff = "Index scan is chosen over bitmap index scan as index condition has high selectivity, which makes index scan more efficient and less costly."
-        return diff
+    elif node1 == "Index scan" and node2 == "Seq Scan":
+        diff = "Index scan is chosen over sequential scan as it is able to access the tuples with the desired values directly, instead of checking each tuples."
+    elif node1 == "NL Join" and node2 == "Merge Join":
+        diff = "Nested-loop join are chosen over merge join because one of the inputs is small and so less few comparisons are needed to be done using nested loop join."
+    elif node1 == "NL Join" and node2 == "Hash Join":
+        diff = "Nested-loop join are chosen over hash join because one of the inputs is small and so less few comparisons are needed to be done using nested loop join."
     else:
-        return ""
+        diff = ''    
+    return diff
 
     # TO DO : add more differences and comparisons (the cases i can think of are listed below)
-    # case 1: index scan over seq scan
-    # case 2: seq scan over index scan
+    # case 1: index scan over seq scan (done)
+    # case 2: seq scan over index scan 
     # case 3: index scan over bitmap scan (done)
     # case 4: seq scan over bitmap scans
     # case 5: bitmap scans over seq scan
     # case 6: merge join over NL join
-    # case 7: NL join over merge join
-    # case 8: merge join over hash join
-    # case 9: hash join over merge join
-    # case 10: NL join over hash join
+    # case 7: NL join over merge join (done)
+    # case 8: merge join over hash join 
+    # case 9: hash join over merge join 
+    # case 10: NL join over hash join (done)
     # case 11: hash joing over NL join
     
 
