@@ -898,9 +898,30 @@ def annotate_query(parsed_query: dict):
     reparse_query(formatted_query, parsed_query)
     return formatted_query
 
-# added method to check what nodes types have been used in the first qep generated
-#output is a list of nodes that are used in the query plan
+def dfs_get_node_types(plan):
+    cur_plan = plan
+    cur_node = cur_plan['Node Type']
+    output = []
+    stack = []
+    stack.append(cur_plan)
+    while(len(stack)):
+        cur_plan = stack.pop()
+        output.append(cur_plan['Node Type'])
+        if 'Plans' in cur_plan:
+            for item in cur_plan['Plans']:
+                #print(item)
+                stack.append(item)
+    return output
+
+
 def get_used_node_types(plan):
+    '''
+    check what node types have been used in the QEP generated
+    Params: 
+        QEP generated
+    Output:
+        node types used in QEP (list)
+    '''
     child_plans = queue.Queue()
     parent_plans = queue.Queue()
     child_plans.put(plan)
@@ -924,7 +945,15 @@ def get_used_node_types(plan):
 
 # added method to generate aqp 
 def generate_alternative_qep(cursor, sql_query, nodes_used):
-    # generate an alternative qep
+    '''
+    disable the node types that were used in QEP and generate an alternative qep when given the same query
+    Params: 
+        Cursor
+        Input Query
+        Nodes used in QEP (list)
+    Output:
+        AQP
+    '''
     # remove the node types that were used in the previous query plan
     cond = None
     cond2 = None
@@ -932,13 +961,15 @@ def generate_alternative_qep(cursor, sql_query, nodes_used):
 
     if 'Index Scan' in nodes_used:
         cond = "enable_indexscan"
+    elif 'Index Only Scan' in nodes_used:
+        cond = 'enable_indexonlyscan'
     elif 'Seq Scan' in nodes_used:
         cond = "enable_seqscan"
     elif 'Bitmap Index Scan' in nodes_used:
         cond = "enable_bitmapscan"
     elif 'Bitmap Heap Scan' in nodes_used:
         cond = "enable_bitmapscan"
-    print('cond is: ', cond)
+  #  print('cond is: ', cond)
     
     # check for joins
 
@@ -949,28 +980,9 @@ def generate_alternative_qep(cursor, sql_query, nodes_used):
     elif 'Nested Loop' in nodes_used:
         cond2 = "enable_nestloop"
     
-    print('cond 2 is :', cond2)
+   # print('cond 2 is :', cond2)
 
-    # for node in nodes_used:
-    #     print('this is in nodes_used:', node)
-        
-    #     #check for scans first
-    #     if node == 'Index Scan' and cond == None:
-    #         cond = "enable_indexscan"
-    #     elif node == 'Seq Scan' and cond == None:
-    #         cond = "enable_seqscan"
-    #     elif node == 'Bitmap Index Scan' and cond == None:
-    #         cond = "enable_bitmapscan"
-    #     elif node == 'Bitmap Heap Scan' and cond == None:
-    #         cond = "enable_bitmapscan"
-    #     # check for joins
-    #     if node == 'Hash Join' and cond2 == None:
-    #         cond2 = "enable_hashjoin"
-    #     elif node == 'Merge Join' and cond2 == None:
-    #         cond2 = "enable_mergejoin"
-    #     elif node == 'Nested Loop' and cond2 == None:
-    #         cond2 = "enable_nestloop"
-        # disable conditions accordingly when generating aqp
+    # disable conditions accordingly when generating aqp
     print('the following conditions are turned off:', cond, ' and ', cond2)
     if cond is not None and cond2 is not None:
         cursor.execute(f"set {cond} = 'off'; set {cond2} = 'off'; EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
@@ -983,45 +995,155 @@ def generate_alternative_qep(cursor, sql_query, nodes_used):
     elif cond is None and cond2 is not None:
         cursor.execute(f"set {cond2} = 'off'; EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
         result = cursor.fetchone()
+    else:
+        cursor.execute(f"EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
+        result = cursor.fetchone()
         return result
 
-# def get_query_execution_plan(cursor, sql_query):
-#     # to execute the given sql operation
-#     cursor.execute(f"EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
-#     result = cursor.fetchone()
-#     return result
+def check_if_same(qep, aqp):
+    '''
+    compare QEP and AQP and retrieve the differences and reasons behind the differences
+    Params:
+        QEP (Plan)
+        AQP (Plan)
+    Output:
+        1 if same
+        0 if different
+    '''
+    #check if the qep and aqp are the same first
+    nodes_used_by_qep = get_used_node_types(qep)
+    nodes_used_by_aqp = get_used_node_types(aqp)
+    if nodes_used_by_qep == nodes_used_by_aqp:
+        return 1
+    else:
+        return 0
+    
+def compare_results(qep, aqp):
+    '''
+    compare annotated results of QEP AND AQP
+    and include the differences between QEP AND AQP
+    Params:
+        QEP annotations
+        AQP annotations
+    Output:
+        annotation for QEP, updated with comparisons (assuming that this will be the only explanations outputted on GUI)
+    '''
+    for i in range(len(qep)):
+        if qep[i]['annotation'] == '':
+            pass
+        elif qep[i]['annotation'] == aqp[i]['annotation']:
+            pass
+        else:
+            # use this to analyse the annotations and generate the differences
+            #return updated annotation to be added to QEP result
+            result = compare_annotations(qep[i]['annotation'], aqp[i]['annotation'])
+            qep[i]['annotation'] = qep[i]['annotation'] + '\n' + result
+
+    return qep
+
+def compare_annotations(qep_ann, aqp_ann):
+    '''
+    this method is to extract the node type from the annotations
+    Params:
+        annotation line from QEP
+        annotation line from AQP
+    Output:
+        node types from QEP and AQP, to be compared using generate_differences()
+    '''
+    annotations = [qep_ann, aqp_ann]
+    node_types = []
+    for i in annotations:
+        if i.startswith('Filtered by'):
+            idx1 = i.index('Filtered by')
+            idx2 = i.index('of')
+            res = ''
+            for idx in range(idx1 + len('Filtered by') + 1, idx2-1):
+                res = res+i[idx]
+            node_types.append(res)
+        elif i.startswith('Perform'):
+            idx1 = i.index('Perform')
+            idx2 = i.index('on')
+            res = ''
+            for idx in range(idx1 + len('Perform')+1, idx2-1):
+                res = res+i[idx]
+            node_types.append(res)
+        else: 
+            if 'of' in i:
+                idx1 = i.index('of')
+            elif 'on' in i:
+                idx1 = i.index('on')
+            res = ''
+            for idx in range(0, idx1-1):
+                res = res+i[idx]
+            node_types.append(res)
+    if node_types[0] == node_types[1]:
+        output= 'the two node types are the same, but the cost is different due to the other node types.'
+        return output
+    # use this method to find the difference between two node types
+    print('node types:', node_types)
+    result = generate_differences(node_types[0], node_types[1])
+    return result
+
+def generate_differences(node1, node2):
+    '''
+    Compare two nodes from the qep and aqp and generate the reason for their differences
+    node1 is from qep
+    node2 is from aqp
+    Output:
+        reasons for differences between the node types (string)
+    '''
+    if node1 == 'Index scan' and node2 == 'Bitmap heap scan':
+        diff = "Index scan is chosen over bitmap heap scan as index condition has high selectivity, which makes index scan more efficient and less costly."
+        return diff
+    elif node1 == 'Index scan' and node2 == 'Bitmap index scan':
+        diff = "Index scan is chosen over bitmap index scan as index condition has high selectivity, which makes index scan more efficient and less costly."
+        return diff
+    else:
+        return ""
+
+    # TO DO : add more differences and comparisons (the cases i can think of are listed below)
+    # case 1: index scan over seq scan
+    # case 2: seq scan over index scan
+    # case 3: index scan over bitmap scan (done)
+    # case 4: seq scan over bitmap scans
+    # case 5: bitmap scans over seq scan
+    # case 6: merge join over NL join
+    # case 7: NL join over merge join
+    # case 8: merge join over hash join
+    # case 9: hash join over merge join
+    # case 10: NL join over hash join
+    # case 11: hash joing over NL join
+    
 
 
 def main():
-    logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
-   
-   # make sure you change this to your postgresql database name before running
-    conn = init_conn("TPC-H")
-   # conn = init_conn('mydatabase')
+ #   logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
+   # conn = init_conn("TPC-H")
+    conn = init_conn('mydatabase')
     cur = conn.cursor()
    
     print('connected')
 
     queries = [
         # Test cases
-        "SELECT * FROM nation, region WHERE nation.n_regionkey = region.r_regionkey and nation.n_regionkey = 0;",
-        "SELECT * FROM nation, region WHERE nation.n_regionkey < region.r_regionkey and nation.n_regionkey = 0;",
-        "SELECT * FROM nation;",
-        'select N_NATIONKey, "n_regionkey" from NATion;',
-        'select N_NATIONKey from NATion;',
-        "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey = n2.n_regionkey;",
-        "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey < n2.n_regionkey;",
-        "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey <> n2.n_regionkey;",
-        "SELECT * FROM nation as n WHERE 0 < n.n_regionkey  and n.n_regionkey < 3;",
-        "SELECT * FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
-        "SELECT n.n_nationkey FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
-        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_nationkey > 7 and n.n_nationkey < 15) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        "SELECT * FROM customer as c, nation as n, region as r WHERE n.n_nationkey > 7 and n.n_nationkey < 15 and  n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey<5) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        "SELECT  DISTINCT c.c_custkey FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+         "SELECT * FROM nation, region WHERE nation.n_regionkey = region.r_regionkey and nation.n_regionkey = 0;",
+        # "SELECT * FROM nation, region WHERE nation.n_regionkey < region.r_regionkey and nation.n_regionkey = 0;",
+         "SELECT * FROM nation;",
+        # 'select N_NATIONKey, "n_regionkey" from NATion;',
+        # 'select N_NATIONKey from NATion;',
+        #"SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey = n2.n_regionkey;",
+        # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey < n2.n_regionkey;",
+        # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey <> n2.n_regionkey;",
+        # "SELECT * FROM nation as n WHERE 0 < n.n_regionkey  and n.n_regionkey < 3;",
+        # "SELECT * FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
+        # "SELECT n.n_nationkey FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
+        # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_nationkey > 7 and n.n_nationkey < 15) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        # "SELECT * FROM customer as c, nation as n, region as r WHERE n.n_nationkey > 7 and n.n_nationkey < 15 and  n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey<5) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        # "SELECT  DISTINCT c.c_custkey FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
 
-        # http://www.qdpma.com/tpch/TPCH100_Query_plans.html
+        # # http://www.qdpma.com/tpch/TPCH100_Query_plans.html
 #         """SELECT l.L_RETURNFLAG, l.L_LINESTAATUS, SUM(l.L_QUANTITY) AS SUM_QTY,
 #  SUM(l.L_EXTENDEDPRICE) AS SUM_BASE_PRICE, SUM(l.L_EXTENDEDPRICE*(1-L_DISCOUNT)) AS SUM_DISC_PRICE,
 #  SUM(l.L_EXTENDEDPRICE*(1-l.L_DISCOUNT)*(1+l.L_TAX)) AS SUM_CHARGE, AVG(l.L_QUANTITY) AS AVG_QTY,
@@ -1045,18 +1167,20 @@ def main():
     for query in queries:
         print("==========================")
         query = preprocess_query_string(query)  # assume all queries are case insensitive
-        print('query: \n')
-        print(query)
-        print('\n')
+     #   print('query: \n')
+     #   print(query)
+     #   print('\n')
      #   logging.debug(query)
+
+        # getting the QEP
         plan = get_query_execution_plan(cur, query)
-        print('plan:')
-        print('\n')
-        print(plan) 
+     #   print('plan:')
+     #   print('\n')
+     #   print(plan) 
         parsed_query = parse(query)
-        print('parsed query:')
-        print('\n')
-        print(parsed_query)
+     #   print('parsed query:')
+     #   print('\n')
+     #   print(parsed_query)
         try:
             preprocess_query_tree(cur, parsed_query)
             transverse_query(parsed_query, plan[0][0]['Plan'])
@@ -1070,15 +1194,15 @@ def main():
             logging.debug(pformat(plan))
             raise e
         else:
-            print('below is parsed query: \n')
-            pprint(parsed_query, sort_dicts=False)
+        #    print('below is parsed query: \n')
+        #    pprint(parsed_query, sort_dicts=False)
             print('below is QEP generated: \n')
             pprint(result)
 
         # getting AQP
         try:
             nodes_used = get_used_node_types(plan[0][0]['Plan'])
-            print(nodes_used)
+            print('QEP USED ', nodes_used)
             parsed_query_aqp = parse(query)
             aqp = generate_alternative_qep(cur, query, nodes_used)
             print('\n aqp plan is as follows:')
@@ -1087,12 +1211,20 @@ def main():
             transverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
             aqp_result = []
             reparse_query(aqp_result, parsed_query_aqp)
+            aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
+            print('AQP USED ', aqp_nodes_used)
+            
         except Exception as e:
             raise e
         else:
             print('\n Below is AQP generated: \n')
             pprint(aqp_result)
-
+            if check_if_same(plan[0][0]['Plan'], aqp[0][0]['Plan']) == 1: 
+                print("There is no AQP available for this particular query. ")
+            else:
+                updated_results = compare_results(result, aqp_result)
+                print('updated annotations with comparisons: \n')
+                pprint(updated_results)
         print()
 
     cur.close()
