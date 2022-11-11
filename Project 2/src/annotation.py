@@ -356,7 +356,7 @@ def find_query_node(query: dict, result: dict) -> bool:
 
     return False
 
-def transverse_query(query: dict, plan: dict):
+def traverse_query(query: dict, plan: dict):
     #loop over each node in the input query
     for outcome in transverse_plan(plan):  
         find_query_node(query, outcome)
@@ -370,7 +370,7 @@ def process(conn, query):
     parsed_query = parse(query)
     
     preprocess_query_tree(current, parsed_query)
-    transverse_query(parsed_query, plan[0][0]['Plan'])
+    traverse_query(parsed_query, plan[0][0]['Plan'])
     
     result = []
     reparse_query(result, parsed_query)
@@ -1211,7 +1211,7 @@ def main():
      #   print(parsed_query)
         try:
             preprocess_query_tree(cur, parsed_query)
-            transverse_query(parsed_query, plan[0][0]['Plan'])
+            traverse_query(parsed_query, plan[0][0]['Plan'])
             result = []
             reparse_query(result, parsed_query)
 
@@ -1234,7 +1234,7 @@ def main():
             parsed_query_aqp = parse(query)
             aqp = generate_alternative_qep(cur, query, nodes_used)
             preprocess_query_tree(cur, parsed_query_aqp)
-            transverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
+            traverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
             aqp_result = []
             reparse_query(aqp_result, parsed_query_aqp)
             aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
