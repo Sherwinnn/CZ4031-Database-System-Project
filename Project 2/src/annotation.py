@@ -1224,34 +1224,32 @@ def main():
         else:
         #    print('below is parsed query: \n')
         #    pprint(parsed_query, sort_dicts=False)
-            print('below is QEP generated: \n')
+            print('\n -----Below is the generated Query Execution Plan----- \n')
             pprint(result)
 
         # getting AQP
         try:
             nodes_used = get_used_node_types(plan[0][0]['Plan'])
-            print('QEP USED ', nodes_used)
+            print('\n -----QEP Operators Used-----  \n', nodes_used)
             parsed_query_aqp = parse(query)
             aqp = generate_alternative_qep(cur, query, nodes_used)
-            print('\n aqp plan is as follows:')
-            print(aqp)
             preprocess_query_tree(cur, parsed_query_aqp)
             transverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
             aqp_result = []
             reparse_query(aqp_result, parsed_query_aqp)
             aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
-            print('AQP USED ', aqp_nodes_used)
             
         except Exception as e:
             raise e
         else:
-            print('\n Below is AQP generated: \n')
-            pprint(aqp_result)
             if check_if_same(plan[0][0]['Plan'], aqp[0][0]['Plan']) == 1: 
-                print("There is no AQP available for this particular query. ")
+                print("\n => There is no AQP available for this particular query ")
             else:
+                print('\n -----Below is the generated Alternate Query Plan----- \n')
+                print(aqp_result)
+                print('\n -----AQP Operators Used:----- \n ', aqp_nodes_used)
                 updated_results = compare_results(result, aqp_result)
-                print('updated annotations with comparisons: \n')
+                print('\n -----Updated annotations with comparisons for generated QEP vs AQP:----- \n')
                 pprint(updated_results)
         print()
 
