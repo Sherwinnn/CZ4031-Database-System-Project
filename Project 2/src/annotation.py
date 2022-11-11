@@ -1146,7 +1146,7 @@ def generate_differences(node1, node2):
 
 def main():
    # logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
-    conn = init_conn("TPC-H")
+    conn = init_conn("postgres")
    # conn = init_conn('mydatabase')
     cur = conn.cursor()
    

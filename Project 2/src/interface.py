@@ -53,6 +53,7 @@ class MyWindow(QMainWindow):
         self.queryAnnotate = ScrollableLabel(self)
         #error message box
         self.error_dialog = QtWidgets.QErrorMessage()
+        self.queryAnnotate2 = ScrollableLabel(self)
 
         #initialise UI
         self.initUI()
@@ -91,10 +92,16 @@ class MyWindow(QMainWindow):
         self.queryOutput.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
         self.queryAnnotate.move(535, 333)
-        self.queryAnnotate.resize(900, 567)
-        self.queryAnnotate.setText("Annotation here:")
+        self.queryAnnotate.resize(450, 567)
+        self.queryAnnotate.setText("QEP Annotation here:")
         self.queryAnnotate.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.queryAnnotate.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+
+        self.queryAnnotate2.move(995, 333)
+        self.queryAnnotate2.resize(450, 567)
+        self.queryAnnotate2.setText("AEP Annotation here:")
+        self.queryAnnotate2.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.queryAnnotate2.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
 
         self.queryOutput.verticalScrollBar().valueChanged.connect(
             self.queryAnnotate.verticalScrollBar().setValue)
@@ -117,6 +124,7 @@ class MyWindow(QMainWindow):
                 query, annotation = process(self.conn, self.queryTextbox.toPlainText())
                 self.queryOutput.setText('\n'.join(query))
                 self.queryAnnotate.setText('\n'.join(annotation))
+                self.queryAnnotate2.setText('\n'.join(annotation))
             except Exception as e:
                 self.error_dialog.showMessage(f"ERROR - {e}")
 
