@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 import sys
-from annotation import process, init_conn
+from annotation import *
 
 #class for popup result window
 class ResultWindow(QWidget):
@@ -147,10 +147,16 @@ class MyWindow(QMainWindow):
         #process query
         if self.conn is not None:
             try:
-                query, annotation = process(self.conn, self.queryTextbox.toPlainText())
+                query, annotation,annotation2= process(self.conn, self.queryTextbox.toPlainText())
+                print("IS ERROR HERE")
+                #print(annotation2)
+                
                 self.result.queryOutput.setText('\n'.join(query))
                 self.result.queryAnnotate.setText('\n'.join(annotation))
+                self.result.queryAQP.setText('\n'.join(annotation2))
                 #self.result.queryAQP.setText(TODO)
+                #query = preprocess_query_string(query)
+
                 q = "Query Entered: " + self.queryTextbox.toPlainText()
                 self.result.query.setText(q)
                 self.result.displayInfo()

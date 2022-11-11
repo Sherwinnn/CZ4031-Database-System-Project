@@ -372,11 +372,39 @@ def process(conn, query):
     
     preprocess_query_tree(current, parsed_query)
     transverse_query(parsed_query, plan[0][0]['Plan'])
-    
     result = []
     reparse_query(result, parsed_query)
+
+    #getting AQP
+    try:
+            nodes_used = get_used_node_types(plan[0][0]['Plan'])
+            print('QEP USED ', nodes_used)
+            parsed_query_aqp = parse(query)
+            aqp = generate_alternative_qep(current, query, nodes_used)
+            print('\n aqp plan is as follows:')
+            print(aqp)
+            preprocess_query_tree(current, parsed_query_aqp)
+            transverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
+            aqp_result = []
+            reparse_query(aqp_result, parsed_query_aqp)
+            print("AQP result")
+            print(aqp_result)
+            aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
+            print('AQP USED ', aqp_nodes_used)
+            
+    except Exception as e:
+        raise e
+    else:
+        print('\n Below is AQP generated: \n')
+        pprint(aqp_result)
+        if check_if_same(plan[0][0]['Plan'], aqp[0][0]['Plan']) == 1: 
+            print("There is no AQP available for this particular query. ")
+        else:
+            updated_results = compare_results(result, aqp_result)
+            print('updated annotations with comparisons: \n')
+            print(updated_results)
     
-    return [q['statement'] for q in result], [q['annotation'] for q in result]
+    return [q['statement'] for q in result], [q['annotation'] for q in result] ,[q['annotation'] for q in aqp_result]
 
 def reparse_without_expand(statement_dict):
     #retrieve annotations and format the query 
@@ -1240,6 +1268,8 @@ def main():
             transverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
             aqp_result = []
             reparse_query(aqp_result, parsed_query_aqp)
+            print("This is AQP Result")
+            print(aqp_result)
             aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
             print('AQP USED ', aqp_nodes_used)
             
