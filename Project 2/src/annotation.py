@@ -1193,7 +1193,7 @@ def main():
     ]
 
     for query in queries:
-        print("==========================")
+        print("<==============================================>")
         query = preprocess_query_string(query)  # assume all queries are case insensitive
      #   print('query: \n')
      #   print(query)
