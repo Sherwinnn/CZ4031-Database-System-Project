@@ -6,6 +6,25 @@ def preprocess_query_string(query):
     return ' '.join([word.lower() if word[0] != '"' and word[0] != "'" else word for word in query.split()])
 
 
+def preprocess_query_tree(cur, query_tree):
+    rel_list = []
+    column_relation_dict = {}
+    collect_relation_list(query_tree, rel_list)
+    logging.debug(f'rel_list={rel_list}')
+    # Collect column info
+    for rel in rel_list:
+        cur.execute(f"SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{rel}'")
+        res = cur.fetchall()
+        # pprint(res)
+        for col in res:
+            if col in column_relation_dict:
+                column_relation_dict[col[0]].append(rel)
+            else:
+                column_relation_dict[col[0]] = [rel]
+    logging.debug(f'column_relation_dict={column_relation_dict}')
+    # For every column, if no dot, try to find in dict, if multiple relation raise exception, else rename
+    rename_column_to_full_name(query_tree, column_relation_dict)
+
 def collect_relation_list(query_tree, rel_list):
     if type(query_tree['from']) is str:
         rel_list.append(query_tree['from'])
@@ -49,22 +68,3 @@ def rename_column_to_full_name(query_tree: typing.Union[dict, list], column_rela
     else:
         raise NotImplementedError(f"{query_tree}")
 
-
-def preprocess_query_tree(cur, query_tree):
-    rel_list = []
-    column_relation_dict = {}
-    collect_relation_list(query_tree, rel_list)
-    logging.debug(f'rel_list={rel_list}')
-    # Collect column info
-    for rel in rel_list:
-        cur.execute(f"SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{rel}'")
-        res = cur.fetchall()
-        # pprint(res)
-        for col in res:
-            if col in column_relation_dict:
-                column_relation_dict[col[0]].append(rel)
-            else:
-                column_relation_dict[col[0]] = [rel]
-    logging.debug(f'column_relation_dict={column_relation_dict}')
-    # For every column, if no dot, try to find in dict, if multiple relation raise exception, else rename
-    rename_column_to_full_name(query_tree, column_relation_dict)

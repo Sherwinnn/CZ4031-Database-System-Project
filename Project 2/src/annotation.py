@@ -37,7 +37,7 @@ def get_query_execution_plan(cursor, sql_query):
     return result
 
 # did not change much, added cost and index name
-def transverse_plan(plan):
+def traverse_plan(plan):
     logging.debug(f"current in {plan['Node Type']}")
     
     if plan['Node Type'] == 'Nested Loop':
@@ -61,8 +61,8 @@ def transverse_plan(plan):
                 'Cost': plan['Total Cost'],
             }
         
-        yield from transverse_plan(plan['Plans'][0])
-        yield from transverse_plan(plan['Plans'][1])
+        yield from traverse_plan(plan['Plans'][0])
+        yield from traverse_plan(plan['Plans'][1])
     
     elif plan['Node Type'] == 'Hash Join':
         assert len(plan['Plans']) == 2, "Length of plans is more than two."
@@ -74,8 +74,8 @@ def transverse_plan(plan):
             'Cost': plan['Total Cost'],
         }
 
-        yield from transverse_plan(plan['Plans'][0])
-        yield from transverse_plan(plan['Plans'][1])
+        yield from traverse_plan(plan['Plans'][0])
+        yield from traverse_plan(plan['Plans'][1])
 
     elif plan['Node Type'] == 'Merge Join':
         yield {
@@ -86,7 +86,7 @@ def transverse_plan(plan):
         }
 
         for p in plan['Plans']:
-            yield from transverse_plan(p)
+            yield from traverse_plan(p)
     
     elif plan['Node Type'] == 'Seq Scan':
         yield {
@@ -138,12 +138,12 @@ def transverse_plan(plan):
             'Cost': plan['Total Cost'],
         }
         for p in plan['Plans']:
-            yield from transverse_plan(p)
+            yield from traverse_plan(p)
     
     else:
         logging.warning(f"WARNING: Unimplemented Node Type {plan['Node Type']}")
         for p in plan['Plans']:
-            yield from transverse_plan(p)
+            yield from traverse_plan(p)
 
 # added new function to explain why an algorithm is chosen (remove this later)
 def explain(result):
@@ -364,7 +364,7 @@ def find_query_node(query: dict, result: dict) -> bool:
 
 def traverse_query(query: dict, plan: dict):
     #loop over each node in the input query
-    for outcome in transverse_plan(plan):  
+    for outcome in traverse_plan(plan):  
         find_query_node(query, outcome)
 
 def process(conn, query):
