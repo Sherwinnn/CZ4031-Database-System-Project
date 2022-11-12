@@ -7,7 +7,7 @@ import psycopg2
 from dotenv import load_dotenv
 from mo_sql_parsing import parse, format
 
-from preprocessing import preprocess_query_string, preprocess_query_tree
+from preprocessing import preprocess_query, preprocess_query_tree
 
 # did not change (might need to change .env file if making changes)
 def import_config():
@@ -370,7 +370,7 @@ def traverse_query(query: dict, plan: dict):
 def process(conn, query):
     #process input by getting query execution plan and parsing query
     #outputs annotated query plan
-    query = preprocess_query_string(query)
+    query = preprocess_query(query)
     current = conn.cursor()
     plan = get_query_execution_plan(current, query)
     parsed_query = parse(query)
@@ -975,7 +975,7 @@ def generate_alternative_qep(cursor, sql_query, nodes_used):
         cond = "enable_bitmapscan"
     elif 'Seq Scan' in nodes_used:
         cond = "enable_seqscan"
-  #  print('cond is: ', cond)
+    # print('cond is: ', cond)
     
     # check for joins
 
@@ -986,7 +986,7 @@ def generate_alternative_qep(cursor, sql_query, nodes_used):
     elif 'Nested Loop' in nodes_used:
         cond2 = "enable_nestloop"
     
-   # print('cond 2 is :', cond2)
+    # print('cond 2 is :', cond2)
 
     # disable conditions accordingly when generating aqp
     print('the following conditions are turned off:', cond, ' and ', cond2)
@@ -1257,7 +1257,7 @@ def main():
 
     for query in queries:
         print("<==============================================>")
-        query = preprocess_query_string(query)  # assume all queries are case insensitive
+        query = preprocess_query(query)  # assume all queries are case insensitive
      #   print('query: \n')
      #   print(query)
      #   print('\n')
@@ -1301,7 +1301,7 @@ def main():
             aqp_result = []
             reparse_query(aqp_result, parsed_query_aqp)
             aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
-            
+
         except Exception as e:
             raise e
         else:
