@@ -37,7 +37,7 @@ def get_query_execution_plan(cursor, sql_query):
     return result
 
 # did not change much, added cost and index name
-def transverse_plan(plan):
+def traverse_plan(plan):
     logging.debug(f"current in {plan['Node Type']}")
     
     if plan['Node Type'] == 'Nested Loop':
@@ -61,8 +61,8 @@ def transverse_plan(plan):
                 'Cost': plan['Total Cost'],
             }
         
-        yield from transverse_plan(plan['Plans'][0])
-        yield from transverse_plan(plan['Plans'][1])
+        yield from traverse_plan(plan['Plans'][0])
+        yield from traverse_plan(plan['Plans'][1])
     
     elif plan['Node Type'] == 'Hash Join':
         assert len(plan['Plans']) == 2, "Length of plans is more than two."
@@ -74,8 +74,8 @@ def transverse_plan(plan):
             'Cost': plan['Total Cost'],
         }
 
-        yield from transverse_plan(plan['Plans'][0])
-        yield from transverse_plan(plan['Plans'][1])
+        yield from traverse_plan(plan['Plans'][0])
+        yield from traverse_plan(plan['Plans'][1])
 
     elif plan['Node Type'] == 'Merge Join':
         yield {
@@ -86,7 +86,7 @@ def transverse_plan(plan):
         }
 
         for p in plan['Plans']:
-            yield from transverse_plan(p)
+            yield from traverse_plan(p)
     
     elif plan['Node Type'] == 'Seq Scan':
         yield {
@@ -138,30 +138,36 @@ def transverse_plan(plan):
             'Cost': plan['Total Cost'],
         }
         for p in plan['Plans']:
-            yield from transverse_plan(p)
+            yield from traverse_plan(p)
     
     else:
         logging.warning(f"WARNING: Unimplemented Node Type {plan['Node Type']}")
         for p in plan['Plans']:
-            yield from transverse_plan(p)
+            yield from traverse_plan(p)
 
 # added new function to explain why an algorithm is chosen (remove this later)
 def explain(result):
     algo = result['Subtype']
     if algo == 'Nested loop':
-        statement = "Nested loop is used because it is less costly when joining smaller tables / The join condition does not use the equality operator."
+        #statement = "Nested loop is used because it is less costly when joining smaller tables / The join condition does not use the equality operator."
+        statement = ""
+        # no need for this, because all the requires explanations are in the comparisons
     elif algo == 'Hash join':
-        statement = "Hash join is used because the join condition uses equality operator and both sides of the join are large."
+       # statement = "Hash join is used because the join condition uses equality operator and both sides of the join are large."
+        statement = ""
+        # no need for this, because all the requires explanations are in the comparisons
     elif algo == 'Merge join':
-        statement = "Merge join is used because both sides of the join are large and can be sorted on the join condition efficiently."
+       # statement = "Merge join is used because both sides of the join are large and can be sorted on the join condition efficiently."
+        statement = ""
+        # no need for this, because all the requires explanations are in the comparisons
     elif algo == 'Sequence scan':
-        statement = "Sequential scan is used since there is no index on the table"
+        statement = "Sequential scan is used since there is no index on the table. "
     elif algo == 'Index scan' or algo == 'Index only scan':
-        statement = f"This is used because index ({result['Index']}) exists."
+        statement = f"This is used because index ({result['Index']}) exists. "
     elif algo == 'Bitmap index scan':
-        statement = f"This is used because both tables have indexes ({result['Index']})."
+        statement = f"This is used because both tables have indexes ({result['Index']}). "
     elif algo == 'Bitmap heap scan':
-        statement = f"This is used because both tables have indexes."
+        statement = f"This is used because both tables have indexes. "
     else:
         statement = ''
     return statement
@@ -356,55 +362,70 @@ def find_query_node(query: dict, result: dict) -> bool:
 
     return False
 
-def transverse_query(query: dict, plan: dict):
+def traverse_query(query: dict, plan: dict):
     #loop over each node in the input query
-    for outcome in transverse_plan(plan):  
+    for outcome in traverse_plan(plan):  
         find_query_node(query, outcome)
 
 def process(conn, query):
     #process input by getting query execution plan and parsing query
     #outputs annotated query plan
     query = preprocess_query_string(query)
-    print("Query is :" + query)
     current = conn.cursor()
     plan = get_query_execution_plan(current, query)
     parsed_query = parse(query)
     
-    preprocess_query_tree(current, parsed_query)
-    transverse_query(parsed_query, plan[0][0]['Plan'])
-    result = []
-    reparse_query(result, parsed_query)
-
-    #getting AQP
     try:
-            nodes_used = get_used_node_types(plan[0][0]['Plan'])
-            print('QEP USED ', nodes_used)
-            parsed_query_aqp = parse(query)
-            aqp = generate_alternative_qep(current, query, nodes_used)
-            print('\n aqp plan is as follows:')
-            print(aqp)
-            preprocess_query_tree(current, parsed_query_aqp)
-            transverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
-            aqp_result = []
-            reparse_query(aqp_result, parsed_query_aqp)
-            print("AQP result")
-            print(aqp_result)
-            aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
-            print('AQP USED ', aqp_nodes_used)
-            
+        preprocess_query_tree(current, parsed_query)
+        traverse_query(parsed_query, plan[0][0]['Plan'])
+        result = []
+        reparse_query(result, parsed_query)
+
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        logging.debug(pformat(query))
+        logging.debug(pformat(parsed_query))
+        logging.debug(pformat(plan))
+        raise e
+    else:
+        print('below is parsed query: \n')
+        pprint(parsed_query, sort_dicts=False)
+        print('\n -----Below is the initially generated Query Execution Plan----- \n')
+        pprint(result)
+
+    # getting AQP
+    try:
+        nodes_used = get_used_node_types(plan[0][0]['Plan'])
+        print('\n -----QEP Operators Used-----  \n', nodes_used)
+        parsed_query_aqp = parse(query)
+        aqp = generate_alternative_qep(current, query, nodes_used)
+        preprocess_query_tree(current, parsed_query_aqp)
+        traverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
+        aqp_result = []
+        reparse_query(aqp_result, parsed_query_aqp)
+        aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
+        
     except Exception as e:
         raise e
     else:
-        print('\n Below is AQP generated: \n')
-        pprint(aqp_result)
         if check_if_same(plan[0][0]['Plan'], aqp[0][0]['Plan']) == 1: 
-            print("There is no AQP available for this particular query. ")
+            print("\n => There is no AQP available for this particular query ")
+            print('\n -----Below is the updated generated Query Execution Plan----- \n')
+            updated_results = add_join_explanations(result)
+            pprint(updated_results)
+
         else:
+            print('\n -----Below is the generated Alternate Query Plan----- \n')
+            print(aqp_result)
+            print('\n -----AQP Operators Used:----- \n ', aqp_nodes_used)
             updated_results = compare_results(result, aqp_result)
-            print('updated annotations with comparisons: \n')
-            print(updated_results)
+            print('\n -----Updated annotations with comparisons for generated QEP vs AQP:----- \n')
+            pprint(updated_results)
+    print()
+
+    current.close()
     
-    return [q['statement'] for q in result], [q['annotation'] for q in result] ,[q['annotation'] for q in aqp_result]
+    return [q['statement'] for q in result], [q['annotation'] for q in result],[q['annotation'] for q in aqp_result]
 
 def reparse_without_expand(statement_dict):
     #retrieve annotations and format the query 
@@ -992,12 +1013,12 @@ def generate_alternative_qep(cursor, sql_query, nodes_used):
         cond = "enable_indexscan"
     elif 'Index Only Scan' in nodes_used:
         cond = 'enable_indexonlyscan'
-    elif 'Seq Scan' in nodes_used:
-        cond = "enable_seqscan"
     elif 'Bitmap Index Scan' in nodes_used:
         cond = "enable_bitmapscan"
     elif 'Bitmap Heap Scan' in nodes_used:
         cond = "enable_bitmapscan"
+    elif 'Seq Scan' in nodes_used:
+        cond = "enable_seqscan"
   #  print('cond is: ', cond)
     
     # check for joins
@@ -1046,7 +1067,35 @@ def check_if_same(qep, aqp):
         return 1
     else:
         return 0
-    
+
+def add_join_explanations(qep):
+    '''
+    In the event that there is no AQP available, add join explanations to the QEP.
+    Params:
+        QEP (Plan)
+    Output:
+        Updated QEP 
+    '''
+    result = ''
+    for i in range(len(qep)):
+        if qep[i]['annotation'] == '':
+            pass
+        else:
+            if qep[i]['annotation'].startswith('Perform'):
+                idx1 = qep[i]['annotation'].index('Perform')
+                idx2 = qep[i]['annotation'].index('on')
+                res = ''
+                for idx in range(idx1 + len('Perform')+1, idx2-1):
+                    res = res+qep[i]['annotation'][idx]
+                if res == 'Nested loop':
+                    result = "Nested loop join is used because it is less costly when joining smaller tables, especially when the table in the outer loop is much smaller."
+                elif res == 'Hash join':
+                    result = "Hash join is used because the join condition uses equality operator and both sides of the join are large. Moreover, the hash table is able to fit into memory, making it less costly."
+                elif res == 'Merge join':
+                    result += "Merge join is used because both sides of the join are large and can be sorted on the join condition efficiently."
+            qep[i]['annotation'] = qep[i]['annotation'] + result
+    return qep
+
 def compare_results(qep, aqp):
     '''
     compare annotated results of QEP AND AQP
@@ -1066,7 +1115,7 @@ def compare_results(qep, aqp):
             # use this to analyse the annotations and generate the differences
             #return updated annotation to be added to QEP result
             result = compare_annotations(qep[i]['annotation'], aqp[i]['annotation'])
-            qep[i]['annotation'] = qep[i]['annotation'] + '\n' + result
+            qep[i]['annotation'] = qep[i]['annotation'] + result
 
     return qep
 
@@ -1081,6 +1130,7 @@ def compare_annotations(qep_ann, aqp_ann):
     '''
     annotations = [qep_ann, aqp_ann]
     node_types = []
+    equality_op = False
     for i in annotations:
         if i.startswith('Filtered by'):
             idx1 = i.index('Filtered by')
@@ -1096,6 +1146,9 @@ def compare_annotations(qep_ann, aqp_ann):
             for idx in range(idx1 + len('Perform')+1, idx2-1):
                 res = res+i[idx]
             node_types.append(res)
+            if '=' in i:
+               # print('there is equality operator in this line: ', i)
+                equality_op=True
         else: 
             if 'of' in i:
                 idx1 = i.index('of')
@@ -1106,76 +1159,101 @@ def compare_annotations(qep_ann, aqp_ann):
                 res = res+i[idx]
             node_types.append(res)
     if node_types[0] == node_types[1]:
-        output= 'the two node types are the same, but the cost is different due to the other node types.'
+        output = f"Both QEP and AQP use {node_types[0]} but the cost differs since the data tables are filtered differently. "
+        if node_types[0] == 'Nested loop':
+            output += "Nested loop is used because it is less costly when joining smaller tables."
+            if equality_op == False:
+                output+= " Moreover, since the join is performed on inequality operator, nested loop join is more suitable."
+        elif node_types[0] == 'Hash join':
+            output += "Hash join is used because the join condition uses equality operator and both sides of the join are large."
+        elif node_types[0] == 'Merge join':
+            output += "Merge join is used because both sides of the join are large and can be sorted on the join condition efficiently."
+
         return output
     # use this method to find the difference between two node types
     print('node types:', node_types)
-    result = generate_differences(node_types[0], node_types[1])
+    result = generate_differences(node_types[0], node_types[1], equality_op)
     return result
 
-def generate_differences(node1, node2):
+def generate_differences(node1, node2, equality_op):
     '''
     Compare two nodes from the qep and aqp and generate the reason for their differences
     node1 is from qep
     node2 is from aqp
+    equality_op indicates if there is an equality sign when performing joins (Boolean)
     Output:
         reasons for differences between the node types (string)
     '''
+    diff = ""
     if node1 == 'Index scan' and node2 == 'Bitmap heap scan':
         diff = "Index scan is chosen over bitmap heap scan as index condition has high selectivity, which makes index scan more efficient and less costly."
     elif node1 == 'Index scan' and node2 == 'Bitmap index scan':
         diff = "Index scan is chosen over bitmap index scan as index condition has high selectivity, which makes index scan more efficient and less costly."
-    elif node1 == "Index scan" and node2 == "Seq Scan":
+    elif node1 == "Index scan" and node2 == "Sequence scan":
         diff = "Index scan is chosen over sequential scan as it is able to access the tuples with the desired values directly, unlike sequential scans, which needs to check each tuples."
-    elif node1 == "NL Join" and node2 == "Merge Join":
-        diff = "Nested-loop join is chosen over merge join because one of the inputs is small and so less comparisons are needed to be done using nested loop join, resulting in lower cost."
-    elif node1 == "NL Join" and node2 == "Hash Join":
-        diff = "Nested-loop join is chosen over hash join because one of the inputs is small and so less comparisons are needed to be done using nested loop join, resulting in lower cost."
-    elif node1 == "Hash Join" and node2 == "Merge Join":
-        diff = "Hash join is chosen over merge join because the input relations are large and unsorted, hence using a hash join will be faster and less costly."
-    elif node1 == "Hash Join" and node2 == "NL Join":
-        diff = "Hash join is chosen over nested-loop join because the input relations are large and unsorted, hence using a hash join will be faster and less costly."
-    elif node1 == "Merge Join" and node2 == "Hash Join":
-        diff = "Merge join is chosen over hash join because the input relations are already sorted on the join attributes. Hence, each relation has to be scanned only once, making the join more efficient and less costly."
-    elif node1 == "Merge Join" and node2 == "NL Join":
-        diff = "Merge join is chosen over nested-loop join because the input relations are large and using nested-loop join will be inefficient and costly. Besides, the relations are already sorted on the join attributes. Hence, each relation has to be scanned only once, making the join more efficient and less costly."
-    elif node1 == "Seq Scan" and node2 == "Index Scan":
+    elif node1 == "Nested loop" and node2 == "Merge join":
+        if equality_op:
+            diff = "The join was performed with an equality operator. "
+        else:
+            diff = "The join was performed with an inequality operator, making nested-loop join more suitable than the other join methods. "
+        diff += "Nested-loop join is chosen over merge join because one of the inputs is small and so less comparisons are needed to be done using nested loop join, resulting in lower cost."
+    elif node1 == "Nested loop" and node2 == "Hash join":
+        if equality_op:
+            diff = "The join was performed with an equality operator. "
+        else:
+            diff = "The join was performed with an inequality operator, making nested-loop join more suitable than the other join methods. "
+        diff += "Nested-loop join is chosen over hash join because one of the inputs is small and so less comparisons are needed to be done using nested loop join, resulting in lower cost."
+    elif node1 == "Hash join" and node2 == "Merge join":
+        if equality_op:
+            diff = "The join was performed with an equality operator, making hash join favourable. "
+        diff += "Hash join is chosen over merge join because the input relations are large and unsorted, hence using a hash join will be faster and less costly. Moreover, the hash table is able to fit into the memory."
+    elif node1 == "Hash join" and node2 == "Nested loop":
+        if equality_op:
+            diff = "The join was performed with an equality operator, making nested-loop join a less efficient option and hash join more favourable. "
+        diff += "Hash join is chosen over nested-loop join because the input relations are large and unsorted, hence using a hash join will be faster and less costly. Moreover, the hash table is able to fit into the memory."
+    elif node1 == "Merge join" and node2 == "Hash join":
+        diff = "Merge join is chosen over hash join because the input relations are already sorted on the join attributes. Hence, each relation has to be scanned only once, making the join more efficient and less costly. Moreover, hash join requires fitting hash table in memory, which results in hash join being slowwer."
+    elif node1 == "Merge join" and node2 == "Nested loop":
+        if equality_op:
+            diff = "The join was performed with an equality operator. "
+        diff += "Merge join is chosen over nested-loop join because the input relations are large and using nested-loop join will be inefficient and costly. Besides, the relations are already sorted on the join attributes. Hence, each relation has to be scanned only once, making the join more efficient and less costly."
+    elif node1 == "Sequence scan" and node2 == "Index scan":
         diff = "Sequential scan is chosen over index scan because the expected size of the output is large, hence using a sequential scan will be more efficient than using an index scan."
-    elif node1 == "Bitmap Index Scan" and node2 == "Index Scan":
+    elif node1 == "Bitmap index scan" and node2 == "Index scan":
         diff = "Bitmap index scan is chosen over index scan as indexes are available and the expected size of the output is large. Bitmap index scan fetches all the tuple-pointers from the index in one go, while index scan fetches one tuple-pointer at a time from the index. Hence, using bitmap index scan is more efficient than using index scan."
-    elif node1 == "Bitmap Heap Scan" and node2 == "Index Scan":
+    elif node1 == "Bitmap heap scan" and node2 == "Index scan":
         diff = "Bitmap heap scan is chosen over index scan as indexes are available and the expected size of the output is large. Bitmap heap scan fetches all the tuple-pointers from the index in one go, while index scan fetches one tuple-pointer at a time from the index. Hence, using bitmap heap scan is more efficient than using index scan."
-    elif node1 == "Bitmap Index Scan" and node2 == "Seq Scan":
+    elif node1 == "Bitmap index scan" and node2 == "Sequence scan":
         diff = "Bitmap index scan is chosen over sequential scan as indexes are available. Bitmap index scan fetches all the tuple-pointers from the index in one go and visits these desired tuples directly. Hence, it is more efficient than sequential scan which needs to check every tuples."
-    elif node1 == "Bitmap Heap Scan" and node2 == "Seq Scan":
+    elif node1 == "Bitmap heap scan" and node2 == "Sequence scan":
         diff = "Bitmap heap scan is chosen over sequential scan as indexes are available. Bitmap heap scan fetches all the tuple-pointers from the index in one go and visits these desired tuples directly. Hence, it is more efficient than sequential scan which needs to check every tuples."
-    elif node1 == "Seq Scan" and node2 == "Bitmap Index Scan":
+    elif node1 == "Sequence scan" and node2 == "Bitmap index scan":
         diff = "Sequential scan is chosen over bitmap index scan because there is no index which can be utilized to perform bitmap index scan."
-    elif node1 == "Seq Scan" and node2 == "Bitmap Heap Scan":
+    elif node1 == "Sequence scan" and node2 == "Bitmap heap scan":
         diff = "Sequential scan is chosen over bitmap heap scan because there is no index which can be utilized to perform bitmap heap scan."
     else:
         diff = ''    
     return diff
 
-    # TO DO : add more differences and comparisons (the cases i can think of are listed below)
-    # case 1: index scan over seq scan (done)
-    # case 2: seq scan over index scan (done)
-    # case 3: index scan over bitmap scan (done)
-    # case 4: seq scan over bitmap scans 
-    # case 5: bitmap scans over seq scan (done)
-    # case 6: merge join over NL join (done)
-    # case 7: NL join over merge join (done)
-    # case 8: merge join over hash join (done)
-    # case 9: hash join over merge join (done)
-    # case 10: NL join over hash join (done)
-    # case 11: hash joing over NL join (done)
-    # case 12 : bitmap over index (done)
-    
+
+# wrote this method to check if theres equality operator in parsed query, but not used, but dont delete first
+def get_eq_operator(parsed_query):
+    if 'where' in parsed_query:
+        for item in parsed_query['where']:
+            if item != 'expand':
+                if 'eq' in parsed_query['where'][item][0]:
+                    return True
+    return False
+
+# TO DO
+
+# add cost comparison between 2 methods in qep and aqp e.g. 'The cost of [aqp join] is ____ times more than the cost of [qep join].'
+# maybe disable more operators in the event that there is no AQP, then try to generate AQP again (not sure if this will work also). 
 
 
 def main():
    # logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
-    conn = init_conn("postgres")
+    conn = init_conn("TPC-H")
    # conn = init_conn('mydatabase')
     cur = conn.cursor()
    
@@ -1183,22 +1261,22 @@ def main():
 
     queries = [
         # Test cases
-         "SELECT * FROM nation, region WHERE nation.n_regionkey = region.r_regionkey and nation.n_regionkey = 0;",
-        # "SELECT * FROM nation, region WHERE nation.n_regionkey < region.r_regionkey and nation.n_regionkey = 0;",
-         "SELECT * FROM nation;",
-        # 'select N_NATIONKey, "n_regionkey" from NATion;',
-        # 'select N_NATIONKey from NATion;',
-        #"SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey = n2.n_regionkey;",
-        # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey < n2.n_regionkey;",
-        # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey <> n2.n_regionkey;",
-        # "SELECT * FROM nation as n WHERE 0 < n.n_regionkey  and n.n_regionkey < 3;",
+        #  "SELECT * FROM nation, region WHERE nation.n_regionkey = region.r_regionkey and nation.n_regionkey = 0;",
+        #  "SELECT * FROM nation, region WHERE nation.n_regionkey < region.r_regionkey and nation.n_regionkey = 0;",
+        #  "SELECT * FROM nation;",
+        #  'select N_NATIONKey, "n_regionkey" from NATion;',
+        #  'select N_NATIONKey from NATion;',
+        # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey = n2.n_regionkey;",
+        #"SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey < n2.n_regionkey;",
+        #"SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey <> n2.n_regionkey;",
+        #"SELECT * FROM nation as n WHERE 0 < n.n_regionkey  and n.n_regionkey < 3;",
         # "SELECT * FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
         # "SELECT n.n_nationkey FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
-        # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_nationkey > 7 and n.n_nationkey < 15) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        # "SELECT * FROM customer as c, nation as n, region as r WHERE n.n_nationkey > 7 and n.n_nationkey < 15 and  n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey<5) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        # "SELECT  DISTINCT c.c_custkey FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_nationkey > 7 and n.n_nationkey < 15) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        "SELECT * FROM customer as c, nation as n, region as r WHERE n.n_nationkey > 7 and n.n_nationkey < 15 and  n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey<5) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        "SELECT  DISTINCT c.c_custkey FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
 
         # # http://www.qdpma.com/tpch/TPCH100_Query_plans.html
 #         """SELECT l.L_RETURNFLAG, l.L_LINESTAATUS, SUM(l.L_QUANTITY) AS SUM_QTY,
@@ -1222,7 +1300,7 @@ def main():
     ]
 
     for query in queries:
-        print("==========================")
+        print("<==============================================>")
         query = preprocess_query_string(query)  # assume all queries are case insensitive
      #   print('query: \n')
      #   print(query)
@@ -1240,7 +1318,7 @@ def main():
      #   print(parsed_query)
         try:
             preprocess_query_tree(cur, parsed_query)
-            transverse_query(parsed_query, plan[0][0]['Plan'])
+            traverse_query(parsed_query, plan[0][0]['Plan'])
             result = []
             reparse_query(result, parsed_query)
 
@@ -1251,39 +1329,38 @@ def main():
             logging.debug(pformat(plan))
             raise e
         else:
-        #    print('below is parsed query: \n')
-        #    pprint(parsed_query, sort_dicts=False)
-            print('below is QEP generated: \n')
-            print(result)
+            print('below is parsed query: \n')
+            pprint(parsed_query, sort_dicts=False)
+            print('\n -----Below is the initially generated Query Execution Plan----- \n')
+            pprint(result)
 
         # getting AQP
         try:
             nodes_used = get_used_node_types(plan[0][0]['Plan'])
-            print('QEP USED ', nodes_used)
+            print('\n -----QEP Operators Used-----  \n', nodes_used)
             parsed_query_aqp = parse(query)
             aqp = generate_alternative_qep(cur, query, nodes_used)
-            print('\n aqp plan is as follows:')
-            print(aqp)
             preprocess_query_tree(cur, parsed_query_aqp)
-            transverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
+            traverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
             aqp_result = []
             reparse_query(aqp_result, parsed_query_aqp)
-            print("This is AQP Result")
-            print(aqp_result)
             aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
-            print(len(aqp_nodes_used))
-            print('AQP USED ', aqp_nodes_used)
             
         except Exception as e:
             raise e
         else:
-            print('\n Below is AQP generated: \n')
-            pprint(aqp_result)
             if check_if_same(plan[0][0]['Plan'], aqp[0][0]['Plan']) == 1: 
-                print("There is no AQP available for this particular query. ")
+                print("\n => There is no AQP available for this particular query ")
+                print('\n -----Below is the updated generated Query Execution Plan----- \n')
+                updated_results = add_join_explanations(result)
+                pprint(updated_results)
+
             else:
+                print('\n -----Below is the generated Alternate Query Plan----- \n')
+                print(aqp_result)
+                print('\n -----AQP Operators Used:----- \n ', aqp_nodes_used)
                 updated_results = compare_results(result, aqp_result)
-                print('updated annotations with comparisons: \n')
+                print('\n -----Updated annotations with comparisons for generated QEP vs AQP:----- \n')
                 pprint(updated_results)
         print()
 
