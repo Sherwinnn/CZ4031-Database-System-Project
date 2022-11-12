@@ -18,6 +18,7 @@ class ResultWindow(QWidget):
         self.lbloutput = QLabel(self)
         self.lblannotate = QLabel(self)
         self.lblAQP = QLabel(self)
+         
         self.queryOutput = ScrollableLabel(self)
         self.queryAnnotate = ScrollableLabel(self)
         self.queryAQP = ScrollableLabel(self)
@@ -162,7 +163,7 @@ class MyWindow(QMainWindow):
                 self.result.displayInfo()
             except Exception as e:
                 self.error_dialog.showMessage(f"ERROR - {e}")
-
+    
 def window():
     app = QApplication(sys.argv)
     demo = MyWindow()

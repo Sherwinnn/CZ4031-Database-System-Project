@@ -1271,6 +1271,7 @@ def main():
             print("This is AQP Result")
             print(aqp_result)
             aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
+            print(len(aqp_nodes_used))
             print('AQP USED ', aqp_nodes_used)
             
         except Exception as e:
