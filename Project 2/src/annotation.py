@@ -1374,7 +1374,7 @@ def generate_aqp_three(cur, query, nodes_used, plan):
 
 def main():
    # logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
-    conn = conn_setup("postgres")
+    conn = conn_setup("TPC-H")
    # conn = conn_setup('mydatabase')
     cur = conn.cursor()
    

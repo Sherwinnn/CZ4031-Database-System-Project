@@ -27,8 +27,10 @@ def preprocess_query_tree(cur, query_tree):
     rename_column(query_tree, col_rel_dict)
 
 def collect_relation_list(query_tree, rel_list):
+    # check if is string
     if type(query_tree['from']) is str:
         rel_list.append(query_tree['from'])
+    # check in dict again
     elif type(query_tree['from']) is dict:
         if type(query_tree['from']['value']) is str:
             rel_list.append(query_tree['from']['value'])
@@ -36,10 +38,13 @@ def collect_relation_list(query_tree, rel_list):
             collect_relation_list(query_tree['from']['value'], rel_list)
         else:
             raise NotImplementedError(f"{query_tree['from']['value']}")
+
+    # check if is list
     elif type(query_tree['from']) is list:
         for relation in query_tree['from']:
             if type(relation) is str:
                 rel_list.append(relation)
+            # check in dict again
             elif type(relation) is dict:
                 if type(relation['value']) is str:
                     rel_list.append(relation['value'])
@@ -48,7 +53,7 @@ def collect_relation_list(query_tree, rel_list):
                 else:
                     raise NotImplementedError(f"{relation['value']}")
 
-
+# rename query when necessary
 def rename_column(query_tree: typing.Union[dict, list], col_rel_dict: dict):
     if type(query_tree) is dict:
         for key, val in query_tree.items():
