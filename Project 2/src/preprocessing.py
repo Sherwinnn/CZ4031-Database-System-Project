@@ -2,14 +2,14 @@ import logging
 import typing
 
 # used in annotation
-def preprocess_query(query):
+def queryStr_prep(query):
     return ' '.join([word.lower() if word[0] != '"' and word[0] != "'" else word for word in query.split()])
 
 # used in annotation
-def preprocess_query_tree(cur, query_tree):
+def queryTree_prep(cur, query_tree):
     rel_list = []
     col_rel_dict = {}
-    collect_relation_list(query_tree, rel_list)
+    get_R_List(query_tree, rel_list)
     logging.debug(f'rel_list={rel_list}')
     
     # obtain information about the column
@@ -24,16 +24,16 @@ def preprocess_query_tree(cur, query_tree):
     logging.debug(f'col_rel_dict={col_rel_dict}')
 
     # rename when necessary
-    rename_column(query_tree, col_rel_dict)
+    colRename(query_tree, col_rel_dict)
 
-def collect_relation_list(query_tree, rel_list):
+def get_R_List(query_tree, rel_list):
     if type(query_tree['from']) is str:
         rel_list.append(query_tree['from'])
     elif type(query_tree['from']) is dict:
         if type(query_tree['from']['value']) is str:
             rel_list.append(query_tree['from']['value'])
         elif type(query_tree['from']['value']) is dict:
-            collect_relation_list(query_tree['from']['value'], rel_list)
+            get_R_List(query_tree['from']['value'], rel_list)
         else:
             raise NotImplementedError(f"{query_tree['from']['value']}")
     elif type(query_tree['from']) is list:
@@ -44,12 +44,12 @@ def collect_relation_list(query_tree, rel_list):
                 if type(relation['value']) is str:
                     rel_list.append(relation['value'])
                 elif type(relation['value']) is dict:
-                    collect_relation_list(relation['value'], rel_list)
+                    get_R_List(relation['value'], rel_list)
                 else:
                     raise NotImplementedError(f"{relation['value']}")
 
 
-def rename_column(query_tree: typing.Union[dict, list], col_rel_dict: dict):
+def colRename(query_tree: typing.Union[dict, list], col_rel_dict: dict):
     if type(query_tree) is dict:
         for key, val in query_tree.items():
             if key in ['literal', 'interval']:
@@ -58,13 +58,13 @@ def rename_column(query_tree: typing.Union[dict, list], col_rel_dict: dict):
                 if '.' not in val and val in col_rel_dict and len(col_rel_dict[val]) == 1:
                     query_tree[key] = f'{col_rel_dict[val][0]}.{val}'
             elif type(val) not in [int, float]:
-                rename_column(val, col_rel_dict)
+                colRename(val, col_rel_dict)
     elif type(query_tree) is list:
         for i, v in enumerate(query_tree):
             if type(v) is str:
                 if '.' not in v and v in col_rel_dict and len(col_rel_dict[v]) == 1:
                     query_tree[i] = f'{col_rel_dict[v][0]}.{v}'
             elif type(v) not in [int, float]:
-                rename_column(v, col_rel_dict)
+                colRename(v, col_rel_dict)
     else:
         raise NotImplementedError(f"{query_tree}")

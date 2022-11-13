@@ -7,7 +7,7 @@ import psycopg2
 from dotenv import load_dotenv
 from mo_sql_parsing import parse, format
 
-from preprocessing import preprocess_query, preprocess_query_tree
+from preprocessing import queryStr_prep, queryTree_prep
 
 
 # Setting up the PostgreSQL database
@@ -32,14 +32,14 @@ def import_config():
     return  db_uname, db_pass, db_host, db_port
 
 # Executing the query and Storing it in JSON format
-def get_query_execution_plan(cursor, sql_query):
+def execute_QEP(cursor, sql_query):
     # to execute the given sql operation
     cursor.execute(f"EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
     result = cursor.fetchone()
     return result
 
 # Traversal of the plan according to the respective Join or Scan types
-def traverse_plan(plan):
+def trav_QEP(plan):
     logging.debug(f"current in {plan['Node Type']}")
     
     if plan['Node Type'] == 'Nested Loop':
@@ -63,8 +63,8 @@ def traverse_plan(plan):
                 'Cost': plan['Total Cost'],
             }
         
-        yield from traverse_plan(plan['Plans'][0])
-        yield from traverse_plan(plan['Plans'][1])
+        yield from trav_QEP(plan['Plans'][0])
+        yield from trav_QEP(plan['Plans'][1])
     
     elif plan['Node Type'] == 'Hash Join':
         assert len(plan['Plans']) == 2, "Length of plans is more than two."
@@ -76,8 +76,8 @@ def traverse_plan(plan):
             'Cost': plan['Total Cost'],
         }
 
-        yield from traverse_plan(plan['Plans'][0])
-        yield from traverse_plan(plan['Plans'][1])
+        yield from trav_QEP(plan['Plans'][0])
+        yield from trav_QEP(plan['Plans'][1])
 
     elif plan['Node Type'] == 'Merge Join':
         yield {
@@ -88,7 +88,7 @@ def traverse_plan(plan):
         }
 
         for p in plan['Plans']:
-            yield from traverse_plan(p)
+            yield from trav_QEP(p)
     
     elif plan['Node Type'] == 'Seq Scan':
         yield {
@@ -157,12 +157,12 @@ def traverse_plan(plan):
             'Cost': plan['Total Cost'],
         }
         for p in plan['Plans']:
-            yield from traverse_plan(p)
+            yield from trav_QEP(p)
     
     else:
         logging.warning(f"WARNING: Unimplemented Node Type {plan['Node Type']}")
         for p in plan['Plans']:
-            yield from traverse_plan(p)
+            yield from trav_QEP(p)
 
 # Function to explain the reason of choosing a Join or Scan in natural language.
 def explain(result):
@@ -251,7 +251,7 @@ def expN_parsing(query: dict, result: dict) -> bool:
                     new_arr.append('$')
                 else:
                     new_arr.append('$')
-                    if find_query_node(subquery, result):
+                    if getQNode(subquery, result):
                         query['expand'] = True
                         annotated = True
             else:
@@ -268,7 +268,7 @@ def expN_parsing(query: dict, result: dict) -> bool:
         outcome = False
         return outcome
     elif op == 'exists':
-        if find_query_node(query[op], result):
+        if getQNode(query[op], result):
             query['expand'] = True
             outcome = True
             return outcome
@@ -286,7 +286,7 @@ def expN_parsing(query: dict, result: dict) -> bool:
             if 'literal' in query[op][1]:
                 pass
             else:
-                if find_query_node(query[op][1], result):
+                if getQNode(query[op][1], result):
                     query['expand'] = True
                     outcome = True
                     return outcome
@@ -298,7 +298,7 @@ def expN_parsing(query: dict, result: dict) -> bool:
         raise NotImplementedError(f'{op}')
 
 # did not change much, added cost and explanation
-def find_query_node(query: dict, result: dict) -> bool:
+def getQNode(query: dict, result: dict) -> bool:
     # a joining operation
     if result['Type'] == 'Join': 
         # condition stated in where
@@ -318,13 +318,13 @@ def find_query_node(query: dict, result: dict) -> bool:
                     return True
         
         if type(query['from']) is dict and type(query['from']['value']) is dict:
-            if find_query_node(query['from']['value'], result):
+            if getQNode(query['from']['value'], result):
                 return True
         
         if type(query['from']) is list:
             for v in query['from']:
                 if type(v) is dict and type(v['value']) is dict:
-                    if find_query_node(v['value'], result):
+                    if getQNode(v['value'], result):
                         return True
     
     elif result['Type'] == 'Scan':  
@@ -341,7 +341,7 @@ def find_query_node(query: dict, result: dict) -> bool:
         
         elif type(query['from']) is dict:
             if type(query['from']['value']) is dict:
-                if find_query_node(query['from']['value'], result):
+                if getQNode(query['from']['value'], result):
                     query['from']['expand'] = True
                     annotated = True
             elif type(query['from']['value']) is str and query['from']['value'] == result['Name'] and query['from'].get(
@@ -363,7 +363,7 @@ def find_query_node(query: dict, result: dict) -> bool:
                         break
                 else:
                     if type(rel['value']) is dict:
-                        if find_query_node(rel['value'], result):
+                        if getQNode(rel['value'], result):
                             rel['expand'] = True
                             annotated = True
                         continue
@@ -381,25 +381,25 @@ def find_query_node(query: dict, result: dict) -> bool:
 
     return False
 
-def traverse_query(query: dict, plan: dict):
+def trav_Q(query: dict, plan: dict):
     #loop over each node in the input query
-    for outcome in traverse_plan(plan):  
-        find_query_node(query, outcome)
+    for outcome in trav_QEP(plan):  
+        getQNode(query, outcome)
 
 def process(conn, query):
     #process input by getting query execution plan and parsing query
     #outputs annotated query plan
-    query = preprocess_query(query)
+    query = queryStr_prep(query)
     print("Query is :" + query)
     current = conn.cursor()
-    plan = get_query_execution_plan(current, query)
+    plan = execute_QEP(current, query)
     parsed_query = parse(query)
 
-    preprocess_query_tree(current, parsed_query)
-    traverse_query(parsed_query, plan[0][0]['Plan'])
+    queryTree_prep(current, parsed_query)
+    trav_Q(parsed_query, plan[0][0]['Plan'])
 
     result = []
-    reparse_query(result, parsed_query)
+    reparse_Q(result, parsed_query)
     
 
     # getting AQP
@@ -460,13 +460,7 @@ def get_name(statement_dict):
     else:
         return statement_dict['name']
 
-# keyword in function name can change to aggregate later
-def find_keyword_operation(statement_dict: dict):
-    aggregate = {'sum', 'count', 'min', 'max', 'avg', 'coalesce'}
-    for operation in aggregate:
-        if operation in statement_dict.keys():
-            return operation
-    return None
+
 
 def find_arithmetic_operation(statement_dict: dict):
     arithmetic = {'mul', 'sub', 'add', 'div', 'mod'}
@@ -504,7 +498,7 @@ def find_datetime_operation(statement_dict: dict):
             return operation
     return None
 
-def reparse_literal(value: any):
+def repLit(value: any):
     if isinstance(value, str):
         return "'" + value + "'"
     elif isinstance(value, list):
@@ -734,7 +728,7 @@ def reparse_comparison_operation(statement_dict: dict, comp_op: str):
                 datetime_op = find_datetime_operation(operand)
 
                 if 'literal' in operand.keys():
-                    statement += reparse_literal(operand['literal'])
+                    statement += repLit(operand['literal'])
 
                 else:
                     statement += '('
@@ -745,7 +739,7 @@ def reparse_comparison_operation(statement_dict: dict, comp_op: str):
                     statement = ''
 
                     if 'select' in operand.keys():
-                        reparse_query(temp_list, operand)
+                        reparse_Q(temp_list, operand)
                     elif arithmetic_op is not None:
                         subq = reparse_arithmetic_operation(operand, arithmetic_op)
                         temp_list.extend(subq)
@@ -786,12 +780,11 @@ def reparse_datetime_operation(statement_dict: dict, datetime_op: str):
         statement += "'" + ' '.join([str(op) for op in operand]) + "'"
     elif type(operand) == dict:
         if 'literal' in operand.keys():
-            statement += reparse_literal(operand['literal'])
+            statement += repLit(operand['literal'])
 
     temp_list.append(format_query(statement))
     return temp_list
 
-#not edited 
 def reparse_other_operations(statement_dict: dict):
     if 'expand' in statement_dict.keys():
         raise NotImplementedError(f"operation - {statement_dict}")
@@ -810,7 +803,7 @@ def reparse_exists_keyword(statement_dict: dict):
 
     if type(operand) == dict:
         temp_list.append(format_query('EXISTS ('))
-        reparse_query(temp_list, operand)
+        reparse_Q(temp_list, operand)
         temp_list.append(format_query(')'))
 
     return temp_list
@@ -840,7 +833,7 @@ def reparse_between_keyword(statement_dict: dict):
                 temp_list.extend(subquery)
                 temp_list.append(format_query(')'))
             elif 'literal' in op:
-                temp_list.append(format_query(reparse_literal(op['literal'])))
+                temp_list.append(format_query(repLit(op['literal'])))
 
         if i == 1:
             temp_list.append(format_query('AND'))
@@ -852,7 +845,7 @@ def format_query(statement: str, annotation: str = ''):
     return {'statement': statement, 'annotation': annotation}
 
 
-def reparse_from_keyword(formatted_query: list, identifier: any, last_identifier: bool = True):
+def reparsefrom(formatted_query: list, identifier: any, last_identifier: bool = True):
     temp_list = []
 
     if type(identifier) == dict:
@@ -864,7 +857,7 @@ def reparse_from_keyword(formatted_query: list, identifier: any, last_identifier
             end_statement = identifier['value']
         elif type(identifier['value']) == dict:
             temp_list.append(format_query('('))
-            reparse_query(temp_list, identifier['value'])
+            reparse_Q(temp_list, identifier['value'])
             end_statement = ')'
 
         if name is not None:
@@ -882,12 +875,12 @@ def reparse_from_keyword(formatted_query: list, identifier: any, last_identifier
         temp_list.append(format_query(statement))
     elif type(identifier) is list:
         for i, single_identifier in enumerate(identifier):
-            reparse_from_keyword(temp_list, single_identifier, i == len(identifier) - 1)
+            reparsefrom(temp_list, single_identifier, i == len(identifier) - 1)
 
     formatted_query.extend(temp_list)
 
 
-def reparse_where_keyword(formatted_query: list, identifier: any):
+def reparseWhere(formatted_query: list, identifier: any):
     temp_list = []
     assert type(identifier) is dict
 
@@ -913,11 +906,11 @@ def reparse_where_keyword(formatted_query: list, identifier: any):
     formatted_query.extend(temp_list)
 
 
-def reparse_keyword_without_annotation(formatted_query: list, identifier: any):
+def reparseNoAnn(formatted_query: list, identifier: any):
     formatted_query.append(format_query(format_keyword_special(identifier)))
 
 
-def reparse_query(formatted_query: list, statement_dict: dict):
+def reparse_Q(formatted_query: list, statement_dict: dict):
     temp_list = []
 
     for keyword, identifier in statement_dict.items():
@@ -928,29 +921,29 @@ def reparse_query(formatted_query: list, statement_dict: dict):
             temp_list.append(format_query(format(appended_identifier)))
         elif keyword == 'from':
             temp_list.append(format_query('FROM'))
-            reparse_from_keyword(temp_list, identifier)
+            reparsefrom(temp_list, identifier)
         elif keyword == 'where':
             temp_list.append(format_query('WHERE'))
-            reparse_where_keyword(temp_list, identifier)
+            reparseWhere(temp_list, identifier)
         elif keyword == 'having':
             temp_list.append(format_query('HAVING'))
-            reparse_where_keyword(temp_list, identifier)
+            reparseWhere(temp_list, identifier)
         elif keyword == 'groupby':
             appended_identifier = {'groupby': identifier, 'from': ''}
-            reparse_keyword_without_annotation(temp_list, appended_identifier)
+            reparseNoAnn(temp_list, appended_identifier)
         elif keyword == 'orderby':
             appended_identifier = {'orderby': identifier, 'from': ''}
-            reparse_keyword_without_annotation(temp_list, appended_identifier)
+            reparseNoAnn(temp_list, appended_identifier)
         elif keyword == 'limit':
             appended_identifier = {'limit': identifier, 'from': ''}
-            reparse_keyword_without_annotation(temp_list, appended_identifier)
+            reparseNoAnn(temp_list, appended_identifier)
 
     formatted_query.extend(temp_list)
 
 
 def annotate_query(parsed_query: dict):
     formatted_query = []
-    reparse_query(formatted_query, parsed_query)
+    reparse_Q(formatted_query, parsed_query)
     return formatted_query
 
 def dfs_get_node_types(plan):
@@ -1136,7 +1129,19 @@ def check_if_same(qep, aqp):
     if nodes_used_by_qep == nodes_used_by_aqp:
         return 1
     else:
-        return 0
+        s = set(nodes_used_by_qep)
+        temp = [x for x in nodes_used_by_aqp if x not in s]
+        print('diff in nodes in aqp and qep:',temp)
+        if len(temp)==0:
+            s = set(nodes_used_by_aqp)
+            temp = [x for x in nodes_used_by_qep if x not in s]
+        # check the difference between qep and aqp
+        # if the difference is not a join / scan, return 1
+        list_operators = ['Index Scan', 'Index Only Scan', 'Bitmap Index Scan', 'Bitmap Heap Scan','Seq Scan', 'Hash Join', 'Merge Join', 'Nested Loop']
+        for op in list_operators:
+            if op in temp:
+                return 0
+        return 1
 
 def add_join_explanations(qep):
     '''
@@ -1184,12 +1189,12 @@ def compare_results(qep, aqp):
         else:
             # use this to analyse the annotations and generate the differences
             #return updated annotation to be added to QEP result
-            result = compare_annotations(qep[i]['annotation'], aqp[i]['annotation'])
+            result = cmp_ann(qep[i]['annotation'], aqp[i]['annotation'])
             qep[i]['annotation'] = qep[i]['annotation'] + result
 
     return qep
 
-def compare_annotations(qep_ann, aqp_ann):
+def cmp_ann(qep_ann, aqp_ann):
     '''
     this method is to extract the node type from the annotations
     Params:
@@ -1337,10 +1342,10 @@ def generate_aqp_three(cur, query, nodes_used, plan):
     aqp = output_list[0]
     conds_turned_off = output_list[1]
         
-    preprocess_query_tree(cur, parsed_query_aqp)
-    traverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
+    queryTree_prep(cur, parsed_query_aqp)
+    trav_Q(parsed_query_aqp, aqp[0][0]['Plan'])
     aqp_result = []
-    reparse_query(aqp_result, parsed_query_aqp)
+    reparse_Q(aqp_result, parsed_query_aqp)
         # generate nodes used in AQP
     aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
     print('aqp used: ', aqp_nodes_used)
@@ -1363,10 +1368,10 @@ def generate_aqp_three(cur, query, nodes_used, plan):
            # print(aqp_result)
             print('successfully generated AQP!!')
             return aqp_result
-        #preprocess_query_tree(cur, parsed_query_aqp)
-        traverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
+        #queryTree_prep(cur, parsed_query_aqp)
+        trav_Q(parsed_query_aqp, aqp[0][0]['Plan'])
         aqp_result = []
-        reparse_query(aqp_result, parsed_query_aqp)
+        reparse_Q(aqp_result, parsed_query_aqp)
         print(parsed_query_aqp)
         
     return 0
@@ -1425,14 +1430,14 @@ def main():
 
     for query in queries:
         print("<==============================================>")
-        query = preprocess_query(query)  # assume all queries are case insensitive
+        query = queryStr_prep(query)  # assume all queries are case insensitive
      #   print('query: \n')
      #   print(query)
      #   print('\n')
      #   logging.debug(query)
 
         # getting the QEP
-        plan = get_query_execution_plan(cur, query)
+        plan = execute_QEP(cur, query)
      #   print('plan:')
      #   print('\n')
      #   print(plan) 
@@ -1441,10 +1446,10 @@ def main():
      #   print('\n')
      #   print(parsed_query)
         try:
-            preprocess_query_tree(cur, parsed_query)
-            traverse_query(parsed_query, plan[0][0]['Plan'])
+            queryTree_prep(cur, parsed_query)
+            trav_Q(parsed_query, plan[0][0]['Plan'])
             result = []
-            reparse_query(result, parsed_query)
+            reparse_Q(result, parsed_query)
 
         except Exception as e:
             logging.error(e, exc_info=True)
@@ -1481,10 +1486,10 @@ def main():
             # aqp = output_list[0]
             # conds_turned_off = output_list[1]
             # print('conditions turned off : ', conds_turned_off)
-            # preprocess_query_tree(cur, parsed_query_aqp)
-            # traverse_query(parsed_query_aqp, aqp[0][0]['Plan'])
+            # queryTree_prep(cur, parsed_query_aqp)
+            # trav_Q(parsed_query_aqp, aqp[0][0]['Plan'])
             # aqp_result = []
-            # reparse_query(aqp_result, parsed_query_aqp)
+            # reparse_Q(aqp_result, parsed_query_aqp)
             # aqp_nodes_used = get_used_node_types(aqp[0][0]['Plan'])
 
         except Exception as e:
