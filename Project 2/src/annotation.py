@@ -294,7 +294,6 @@ def expN_parsing(query: dict, result: dict) -> bool:
     else:
         raise NotImplementedError(f'{op}')
 
-# did not change much, added cost and explanation
 def getQNode(query: dict, result: dict) -> bool:
     # a joining operation
     if result['Type'] == 'Join': 
@@ -429,9 +428,9 @@ def process(conn, query):
     else:
         return [q['statement'] for q in result], [q['annotation'] for q in result],[q['annotation'] for q in AQP_results]
 
-def reparse_without_expand(statement_dict):
-    # retrieve annotations and format the query 
-    # outputs formatted query in an array
+def reparseNoExp(statement_dict):
+    #retrieve annotations and format the query 
+    #outputs formatted query in an array
     result = []
     annotn = get_annotation(statement_dict)
     if 'ann' in statement_dict.keys():
@@ -457,21 +456,23 @@ def get_name(statement_dict):
     else:
         return statement_dict['name']
 
-def find_arithmetic_operation(statement_dict: dict):
+
+
+def getArith(statement_dict: dict):
     arithmetic = {'mul', 'sub', 'add', 'div', 'mod'}
     for operation in arithmetic:
         if operation in statement_dict.keys():
             return operation
     return None
 
-def find_conjunction_operation(statement_dict: dict):
+def getConj(statement_dict: dict):
     conjunction = {'and', 'or'}
     for operation in conjunction:
         if operation in statement_dict.keys():
             return operation
     return None
 
-def find_comparison_operation(statement_dict: dict):
+def getCmp(statement_dict: dict):
     comparison = {
         'gt', 'lt',
         'gte', 'lte',
@@ -485,7 +486,7 @@ def find_comparison_operation(statement_dict: dict):
             return operation
     return None
 
-def find_datetime_operation(statement_dict: dict):
+def getDateTime(statement_dict: dict):
     datetime = {'time', 'timestamp', 'date', 'interval'}
     for operation in datetime:
         if operation in statement_dict.keys():
@@ -507,11 +508,12 @@ def repLit(value: any):
     else:
         raise NotImplementedError(f"literal type - {value}")
 
-def reparse_arithmetic_operation(statement_dict: dict, symbol_op: str):
+#to do: make more edits
+def reparseArith(statement_dict: dict, symbol_op: str):
     temp_list = []
 
     if 'expand' not in statement_dict.keys():
-        temp_list.extend(reparse_without_expand(statement_dict))
+        temp_list.extend(reparseNoExp(statement_dict))
         return temp_list
 
     symbol_ops = {'mul': '*', 'sub': '-', 'add': '+', 'div': '/', 'mod': '%'}
@@ -523,10 +525,10 @@ def reparse_arithmetic_operation(statement_dict: dict, symbol_op: str):
             if isinstance(operand, (int, float, str)):
                 statement += str(operand)
             elif type(operand) == dict:
-                arithmetic_operator = find_arithmetic_operation(operand)
-                datetime_op = find_datetime_operation(operand)
+                arithmetic_operator = getArith(operand)
+                datetime_op = getDateTime(operand)
                 if arithmetic_operator is not None:
-                    subq = reparse_arithmetic_operation(operand, arithmetic_operator)
+                    subq = reparseArith(operand, arithmetic_operator)
                     if len(subq) > 1:
                         statement += '('
                         temp_list.append(format_query(statement))
@@ -538,7 +540,7 @@ def reparse_arithmetic_operation(statement_dict: dict, symbol_op: str):
 
                     statement = ''
                 elif datetime_op is not None:
-                    subq = reparse_datetime_operation(operand, datetime_op)
+                    subq = reparseDT(operand, datetime_op)
                     statement += '('
                     if len(subq) == 1:
                         statement += subq[0]['statement']
@@ -550,7 +552,7 @@ def reparse_arithmetic_operation(statement_dict: dict, symbol_op: str):
                         temp_list.append(format_query(')'))
                     statement = ''
                 else:
-                    subq = reparse_other_operations(operand)
+                    subq = reparseOther(operand)
                     statement += '(' + subq + ')'
                     temp_list.append(format_query(statement))
                     statement = ''
@@ -565,11 +567,12 @@ def reparse_arithmetic_operation(statement_dict: dict, symbol_op: str):
 
     return temp_list
 
-def reparse_keyword_operation(statement_dict: dict, op: str, comma: bool = False):
+
+def reparseKey(statement_dict: dict, op: str, comma: bool = False):
     temp_list = []
 
     if 'expand' not in statement_dict.keys():
-        temp_list.extend(reparse_without_expand(statement_dict))
+        temp_list.extend(reparseNoExp(statement_dict))
         return temp_list
 
     operand = statement_dict[op]
@@ -580,14 +583,14 @@ def reparse_keyword_operation(statement_dict: dict, op: str, comma: bool = False
             statement += ','
         temp_list.append(format_query(statement))
     elif type(operand) == dict:
-        arithmetic_operator = find_arithmetic_operation(operand)
+        arithmetic_operator = getArith(operand)
         temp_list.append(format_query(op.upper() + ' ('))
 
         if arithmetic_operator is not None:
-            subq = reparse_arithmetic_operation(operand, arithmetic_operator)
+            subq = reparseArith(operand, arithmetic_operator)
             temp_list.extend(subq)
         else:
-            subq = reparse_other_operations(operand)
+            subq = reparseOther(operand)
             temp_list.append(format_query(subq))
 
         end_statement = ')'
@@ -597,33 +600,34 @@ def reparse_keyword_operation(statement_dict: dict, op: str, comma: bool = False
 
     return temp_list
 
-def reparse_conjunction_operation(statement_dict: dict, conj_op: str):
+
+def reparseConj(statement_dict: dict, conj_op: str):
     temp_list = []
 
     if 'expand' not in statement_dict.keys():
-        temp_list.extend(reparse_without_expand(statement_dict))
+        temp_list.extend(reparseNoExp(statement_dict))
         return temp_list
 
     operands = statement_dict[conj_op]
     assert type(operands) is list
 
     for i, operand in enumerate(operands):
-        arithmetic_op = find_arithmetic_operation(operand)
-        conjunction_op = find_conjunction_operation(operand)
-        comparison_op = find_comparison_operation(operand)
+        arithmetic_op = getArith(operand)
+        conjunction_op = getConj(operand)
+        comparison_op = getCmp(operand)
 
         if arithmetic_op is not None:
             temp_list.append(format_query('('))
-            subq = reparse_arithmetic_operation(operand, arithmetic_op)
+            subq = reparseArith(operand, arithmetic_op)
             temp_list.extend(subq)
             temp_list.append(format_query(')'))
         elif conjunction_op is not None:
             temp_list.append(format_query('('))
-            subq = reparse_conjunction_operation(operand, conjunction_op)
+            subq = reparseConj(operand, conjunction_op)
             temp_list.extend(subq)
             temp_list.append(format_query(')'))
         elif comparison_op is not None:
-            subq = reparse_comparison_operation(operand, comparison_op)
+            subq = reparseCmp(operand, comparison_op)
             if len(subq) > 1:
                 temp_list.append(format_query('('))
                 temp_list.extend(subq)
@@ -632,17 +636,17 @@ def reparse_conjunction_operation(statement_dict: dict, conj_op: str):
                 temp_list.extend(subq)
         elif 'exists' in operand.keys():
             temp_list.append(format_query('('))
-            subq = reparse_exists_keyword(operand)
+            subq = reparseExist(operand)
             temp_list.extend(subq)
             temp_list.append(format_query(')'))
         elif 'not' in operand.keys():
             temp_list.append(format_query('('))
-            subq = reparse_not_operation(operand)
+            subq = reparseNot(operand)
             temp_list.extend(subq)
             temp_list.append(format_query(')'))
         else:
             temp_list.append(format_query('('))
-            subq = reparse_other_operations(operand)
+            subq = reparseOther(operand)
             temp_list.append(format_query(subq))
             temp_list.append(format_query(')'))
 
@@ -651,44 +655,46 @@ def reparse_conjunction_operation(statement_dict: dict, conj_op: str):
 
     return temp_list
 
-def reparse_not_operation(statement_dict: dict):
+
+def reparseNot(statement_dict: dict):
     temp_list = []
 
     if 'expand' not in statement_dict.keys():
-        temp_list.extend(reparse_without_expand(statement_dict))
+        temp_list.extend(reparseNoExp(statement_dict))
         return temp_list
 
     operand = statement_dict['not']
 
-    arithmetic_op = find_arithmetic_operation(operand)
-    conjunction_op = find_conjunction_operation(operand)
-    comparison_op = find_comparison_operation(operand)
+    arithmetic_op = getArith(operand)
+    conjunction_op = getConj(operand)
+    comparison_op = getCmp(operand)
 
     temp_list.append(format_query('NOT ('))
     if arithmetic_op is not None:
-        subq = reparse_arithmetic_operation(operand, arithmetic_op)
+        subq = reparseArith(operand, arithmetic_op)
         temp_list.extend(subq)
     elif conjunction_op is not None:
-        subq = reparse_conjunction_operation(operand, conjunction_op)
+        subq = reparseConj(operand, conjunction_op)
         temp_list.extend(subq)
     elif comparison_op is not None:
-        subq = reparse_comparison_operation(operand, comparison_op)
+        subq = reparseCmp(operand, comparison_op)
         temp_list.extend(subq)
     elif 'exists' in operand.keys():
-        subq = reparse_exists_keyword(operand)
+        subq = reparseExist(operand)
         temp_list.extend(subq)
     else:
-        subq = reparse_other_operations(operand)
+        subq = reparseOther(operand)
         temp_list.append(format_query(subq))
 
     temp_list.append(format_query(')'))
     return temp_list
 
-def reparse_comparison_operation(statement_dict: dict, comp_op: str):
+
+def reparseCmp(statement_dict: dict, comp_op: str):
     temp_list = []
 
     if 'expand' not in statement_dict.keys():
-        temp_list.extend(reparse_without_expand(statement_dict))
+        temp_list.extend(reparseNoExp(statement_dict))
         return temp_list
 
     comp_ops = {
@@ -713,8 +719,8 @@ def reparse_comparison_operation(statement_dict: dict, comp_op: str):
             if isinstance(operand, (int, float, str)):
                 statement += str(operand)
             elif type(operand) is dict:
-                arithmetic_op = find_arithmetic_operation(operand)
-                datetime_op = find_datetime_operation(operand)
+                arithmetic_op = getArith(operand)
+                datetime_op = getDateTime(operand)
 
                 if 'literal' in operand.keys():
                     statement += repLit(operand['literal'])
@@ -730,13 +736,13 @@ def reparse_comparison_operation(statement_dict: dict, comp_op: str):
                     if 'select' in operand.keys():
                         reparse_Q(temp_list, operand)
                     elif arithmetic_op is not None:
-                        subq = reparse_arithmetic_operation(operand, arithmetic_op)
+                        subq = reparseArith(operand, arithmetic_op)
                         temp_list.extend(subq)
                     elif datetime_op is not None:
-                        subq = reparse_datetime_operation(operand, datetime_op)
+                        subq = reparseDT(operand, datetime_op)
                         temp_list.extend(subq)
                     else:
-                        subq = reparse_other_operations(operand)
+                        subq = reparseOther(operand)
                         temp_list.append(format_query(subq))
 
                     temp_list.append(format_query(')'))
@@ -754,11 +760,12 @@ def reparse_comparison_operation(statement_dict: dict, comp_op: str):
 
     return temp_list
 
-def reparse_datetime_operation(statement_dict: dict, datetime_op: str):
+
+def reparseDT(statement_dict: dict, datetime_op: str):
     temp_list = []
 
     if 'expand' not in statement_dict.keys():
-        temp_list.extend(reparse_without_expand(statement_dict))
+        temp_list.extend(reparseNoExp(statement_dict))
         return temp_list
 
     operand = statement_dict[datetime_op]
@@ -773,17 +780,18 @@ def reparse_datetime_operation(statement_dict: dict, datetime_op: str):
     temp_list.append(format_query(statement))
     return temp_list
 
-def reparse_other_operations(statement_dict: dict):
+def reparseOther(statement_dict: dict):
     if 'expand' in statement_dict.keys():
         raise NotImplementedError(f"operation - {statement_dict}")
     else:
         return format(statement_dict)
 
-def reparse_exists_keyword(statement_dict: dict):
+
+def reparseExist(statement_dict: dict):
     temp_list = []
 
     if 'expand' not in statement_dict.keys():
-        temp_list.extend(reparse_without_expand(statement_dict))
+        temp_list.extend(reparseNoExp(statement_dict))
         return temp_list
 
     operand = statement_dict['exists']
@@ -795,11 +803,14 @@ def reparse_exists_keyword(statement_dict: dict):
 
     return temp_list
 
-def reparse_between_keyword(statement_dict: dict):
+
+
+
+def reparseBtw(statement_dict: dict):
     temp_list = []
 
     if 'expand' not in statement_dict.keys():
-        temp_list.extend(reparse_without_expand(statement_dict))
+        temp_list.extend(reparseNoExp(statement_dict))
         return temp_list
 
     operand = statement_dict['between']
@@ -809,11 +820,11 @@ def reparse_between_keyword(statement_dict: dict):
         if isinstance(op, (int, float, str)):
             temp_list.append(format_query(op))
         elif type(op) is dict:
-            arithmetic_op = find_arithmetic_operation(op)
+            arithmetic_op = getArith(op)
 
             if arithmetic_op is not None:
                 temp_list.append(format_query('('))
-                subquery = reparse_arithmetic_operation(operand, arithmetic_op)
+                subquery = reparseArith(operand, arithmetic_op)
                 temp_list.extend(subquery)
                 temp_list.append(format_query(')'))
             elif 'literal' in op:
@@ -865,23 +876,23 @@ def reparseWhere(formatted_query: list, identifier: any):
     temp_list = []
     assert type(identifier) is dict
 
-    conjunction_op = find_conjunction_operation(identifier)
-    comparison_op = find_comparison_operation(identifier)
+    conjunction_op = getConj(identifier)
+    comparison_op = getCmp(identifier)
 
     if conjunction_op is not None:
-        subquery = reparse_conjunction_operation(identifier, conjunction_op)
+        subquery = reparseConj(identifier, conjunction_op)
         temp_list.extend(subquery)
     elif comparison_op is not None:
-        subquery = reparse_comparison_operation(identifier, comparison_op)
+        subquery = reparseCmp(identifier, comparison_op)
         temp_list.extend(subquery)
     elif 'exists' in identifier.keys():
-        subquery = reparse_exists_keyword(identifier)
+        subquery = reparseExist(identifier)
         temp_list.extend(subquery)
     elif 'not' in identifier.keys():
-        subquery = reparse_not_operation(identifier)
+        subquery = reparseNot(identifier)
         temp_list.extend(subquery)
     else:
-        subquery = reparse_other_operations(identifier)
+        subquery = reparseOther(identifier)
         temp_list.append(format_query(subquery))
 
     formatted_query.extend(temp_list)
