@@ -152,8 +152,6 @@ def trav_QEP(plan):
             'Name': plan['Relation Name'],
             'Alias': plan['Alias'],
             'Filter': plan.get('Filter', ''),
-           # 'Index' : plan['Index Name'], 
-           # heapscan doesnt have the key Index 
             'Cost': plan['Total Cost'],
         }
         for p in plan['Plans']:
@@ -192,24 +190,23 @@ def explain(result):
     return statement
 
 def format_ann(result: dict):
-    # marker for annotation
+    # annotation
     if result['Type'] == 'Join':
         return f"Perform {result['Subtype']} on {result['Filter']}, total cost is {result['Cost']}. {explain(result)}"
     
-    #marker for annotation
+    # annotation
     elif result['Type'] == 'Scan':
         return f"Filtered by {result['Subtype']} of {result['Name']}, total cost is {result['Cost']}. {explain(result)}"
 
-# 
 def expN_parsing(query: dict, result: dict) -> bool:
 
     # input query and result for parsing
     outcome = True
-    #check if query dictionary keys contain 'ann'
+    # check if query dictionary keys contain 'ann'
     if 'ann' in query.keys():
         outcome = False
         return outcome
-    #dictionary of comparison operations in query dictionary keys
+    # dictionary of comparison operations in query dictionary keys
     comp_ops = {
         'gt': (' > ', ' < '),
         'lt': (' < ', ' > '),
@@ -233,7 +230,7 @@ def expN_parsing(query: dict, result: dict) -> bool:
         if outcome:
             query['expand'] = True
         return outcome
-    #if no subqueries, check for comparison operations 
+    # if no subqueries, check for comparison operations 
     elif op in comp_ops:
         new_arr = []
         annotated = False
@@ -382,13 +379,13 @@ def getQNode(query: dict, result: dict) -> bool:
     return False
 
 def trav_Q(query: dict, plan: dict):
-    #loop over each node in the input query
+    # loop over each node in the input query
     for outcome in trav_QEP(plan):  
         getQNode(query, outcome)
 
 def process(conn, query):
-    #process input by getting query execution plan and parsing query
-    #outputs annotated query plan
+    # process input by getting query execution plan and parsing query
+    # outputs annotated query plan
     query = queryStr_prep(query)
     print("Query is :" + query)
     current = conn.cursor()
@@ -433,8 +430,8 @@ def process(conn, query):
         return [q['statement'] for q in result], [q['annotation'] for q in result],[q['annotation'] for q in AQP_results]
 
 def reparse_without_expand(statement_dict):
-    #retrieve annotations and format the query 
-    #outputs formatted query in an array
+    # retrieve annotations and format the query 
+    # outputs formatted query in an array
     result = []
     annotn = get_annotation(statement_dict)
     if 'ann' in statement_dict.keys():
@@ -460,8 +457,6 @@ def get_name(statement_dict):
     else:
         return statement_dict['name']
 
-
-
 def find_arithmetic_operation(statement_dict: dict):
     arithmetic = {'mul', 'sub', 'add', 'div', 'mod'}
     for operation in arithmetic:
@@ -484,7 +479,6 @@ def find_comparison_operation(statement_dict: dict):
         'like', 'not_like',
         'eq', 'neq',
     }
-
 
     for operation in comparison:
         if operation in statement_dict.keys():
@@ -513,7 +507,6 @@ def repLit(value: any):
     else:
         raise NotImplementedError(f"literal type - {value}")
 
-#to do: make more edits
 def reparse_arithmetic_operation(statement_dict: dict, symbol_op: str):
     temp_list = []
 
@@ -572,7 +565,6 @@ def reparse_arithmetic_operation(statement_dict: dict, symbol_op: str):
 
     return temp_list
 
-
 def reparse_keyword_operation(statement_dict: dict, op: str, comma: bool = False):
     temp_list = []
 
@@ -604,7 +596,6 @@ def reparse_keyword_operation(statement_dict: dict, op: str, comma: bool = False
         temp_list.append(format_query(end_statement))
 
     return temp_list
-
 
 def reparse_conjunction_operation(statement_dict: dict, conj_op: str):
     temp_list = []
@@ -660,7 +651,6 @@ def reparse_conjunction_operation(statement_dict: dict, conj_op: str):
 
     return temp_list
 
-
 def reparse_not_operation(statement_dict: dict):
     temp_list = []
 
@@ -693,7 +683,6 @@ def reparse_not_operation(statement_dict: dict):
 
     temp_list.append(format_query(')'))
     return temp_list
-
 
 def reparse_comparison_operation(statement_dict: dict, comp_op: str):
     temp_list = []
@@ -765,7 +754,6 @@ def reparse_comparison_operation(statement_dict: dict, comp_op: str):
 
     return temp_list
 
-
 def reparse_datetime_operation(statement_dict: dict, datetime_op: str):
     temp_list = []
 
@@ -791,7 +779,6 @@ def reparse_other_operations(statement_dict: dict):
     else:
         return format(statement_dict)
 
-
 def reparse_exists_keyword(statement_dict: dict):
     temp_list = []
 
@@ -807,9 +794,6 @@ def reparse_exists_keyword(statement_dict: dict):
         temp_list.append(format_query(')'))
 
     return temp_list
-
-
-
 
 def reparse_between_keyword(statement_dict: dict):
     temp_list = []
@@ -840,10 +824,8 @@ def reparse_between_keyword(statement_dict: dict):
 
     return temp_list
 
-
 def format_query(statement: str, annotation: str = ''):
     return {'statement': statement, 'annotation': annotation}
-
 
 def reparsefrom(formatted_query: list, identifier: any, last_identifier: bool = True):
     temp_list = []
@@ -879,7 +861,6 @@ def reparsefrom(formatted_query: list, identifier: any, last_identifier: bool = 
 
     formatted_query.extend(temp_list)
 
-
 def reparseWhere(formatted_query: list, identifier: any):
     temp_list = []
     assert type(identifier) is dict
@@ -905,10 +886,8 @@ def reparseWhere(formatted_query: list, identifier: any):
 
     formatted_query.extend(temp_list)
 
-
 def reparseNoAnn(formatted_query: list, identifier: any):
     formatted_query.append(format_query(format_keyword_special(identifier)))
-
 
 def reparse_Q(formatted_query: list, statement_dict: dict):
     temp_list = []
@@ -940,7 +919,6 @@ def reparse_Q(formatted_query: list, statement_dict: dict):
 
     formatted_query.extend(temp_list)
 
-
 def annotate_query(parsed_query: dict):
     formatted_query = []
     reparse_Q(formatted_query, parsed_query)
@@ -960,7 +938,6 @@ def dfs_get_node_types(plan):
                 #print(item)
                 stack.append(item)
     return output
-
 
 def get_used_node_types(plan):
     '''
@@ -992,7 +969,7 @@ def get_used_node_types(plan):
 
     return nodes_used
 
-# added method to generate aqp 
+# method to generate aqp 
 def generate_alternative_qep(cursor, sql_query, nodes_used):
     '''
     disable the node types that were used in QEP and generate an alternative qep when given the same query
@@ -1314,7 +1291,6 @@ def generate_differences(node1, node2, equality_op):
         diff = ''    
     return diff
 
-
 # wrote this method to check if theres equality operator in parsed query, but not used, but dont delete first
 def get_eq_operator(parsed_query):
     if 'where' in parsed_query:
@@ -1375,14 +1351,10 @@ def generate_aqp_three(cur, query, nodes_used, plan):
         print(parsed_query_aqp)
         
     return 0
-# TO DO
-
-# add cost comparison between 2 methods in qep and aqp e.g. 'The cost of [aqp join] is ____ times more than the cost of [qep join].'
 
 def main():
-   # logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
+    # default database name is "TPC-H", change it to the name of your database if necessary
     conn = conn_setup("TPC-H")
-   # conn = conn_setup('mydatabase')
     cur = conn.cursor()
    
     print('connected')
@@ -1520,10 +1492,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# SELECT *
-# FROM nation, 					  -> Seq Scan, Filter n_regionkey
-#      region  					  -> Index Scan on n_regionkey = 0
-# WHERE nation.n_regionkey = region.r_regionkey     -> Nested Loop
-# AND
-#       nation.n_regionkey = 0			  -> SeqScan, Filter n_regionkey = 0
