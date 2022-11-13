@@ -153,8 +153,7 @@ class MyWindow(QMainWindow):
                 # self.result.queryOutput.setText('\n'.join(query))
                 
                 #Setting Query Number Bulletpoints
-                print("===================This is Query")
-                print(query)
+                
                 output=''
                 anno = ''
                 anno2 =''
