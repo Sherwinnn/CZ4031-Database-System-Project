@@ -1291,7 +1291,7 @@ def generate_differences(node1, node2, equality_op):
         diff = ''    
     return diff
 
-# wrote this method to check if theres equality operator in parsed query, but not used, but dont delete first
+# wrote this method to check if theres equality operator in parsed query
 def get_eq_operator(parsed_query):
     if 'where' in parsed_query:
         for item in parsed_query['where']:
