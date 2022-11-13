@@ -9,14 +9,6 @@ from mo_sql_parsing import parse, format
 
 from preprocessing import preprocess_query, preprocess_query_tree
 
-# Preset PostgreSQL's authentication information under .env file first
-def import_config():
-    load_dotenv()
-    db_uname = os.getenv("Database_Username")
-    db_pass = os.getenv("Database_Password")
-    db_host = os.getenv("Host_Name")
-    db_port = os.getenv("Port_Number")
-    return  db_uname, db_pass, db_host, db_port
 
 # Setting up the PostgreSQL database
 def db_setup(db_name, db_uname, db_pass, db_host, db_port):
@@ -30,13 +22,23 @@ def conn_setup(db_name):
     conn = db_setup(db_name, db_uname, db_pass, db_host, db_port)
     return conn
 
+# Preset PostgreSQL's authentication information under .env file first
+def import_config():
+    load_dotenv()
+    db_uname = os.getenv("Database_Username")
+    db_pass = os.getenv("Database_Password")
+    db_host = os.getenv("Host_Name")
+    db_port = os.getenv("Port_Number")
+    return  db_uname, db_pass, db_host, db_port
+
+# Executing the query and Storing it in JSON format
 def get_query_execution_plan(cursor, sql_query):
     # to execute the given sql operation
     cursor.execute(f"EXPLAIN (VERBOSE TRUE, FORMAT JSON) {sql_query}")
     result = cursor.fetchone()
     return result
 
-# did not change much, added cost and index name
+# Traversal of the plan according to the respective Join or Scan types
 def traverse_plan(plan):
     logging.debug(f"current in {plan['Node Type']}")
     
@@ -162,7 +164,7 @@ def traverse_plan(plan):
         for p in plan['Plans']:
             yield from traverse_plan(p)
 
-# added new function to explain why an algorithm is chosen (remove this later)
+# Function to explain the reason of choosing a Join or Scan in natural language.
 def explain(result):
     algo = result['Subtype']
     if algo == 'Nested loop':
@@ -198,8 +200,8 @@ def format_ann(result: dict):
     elif result['Type'] == 'Scan':
         return f"Filtered by {result['Subtype']} of {result['Name']}, total cost is {result['Cost']}. {explain(result)}"
 
-#todo: add more comments and explanations
-def parse_expr_node(query: dict, result: dict) -> bool:
+# 
+def expN_parsing(query: dict, result: dict) -> bool:
 
     # input query and result for parsing
     outcome = True
@@ -225,7 +227,7 @@ def parse_expr_node(query: dict, result: dict) -> bool:
         for subquery in query[op]:
             if type(subquery) is dict:
                 # check for subquery and recursively parse expressions in the subquery
-                outcome |= parse_expr_node(subquery, result)
+                outcome |= expN_parsing(subquery, result)
             else:
                 raise NotImplementedError(f'{subquery}')
         if outcome:
@@ -273,7 +275,7 @@ def parse_expr_node(query: dict, result: dict) -> bool:
         outcome = False
         return outcome
     elif op == 'not':
-        if parse_expr_node(query[op], result):
+        if expN_parsing(query[op], result):
             query['expand'] = True
             outcome = True
             return outcome
@@ -306,13 +308,13 @@ def find_query_node(query: dict, result: dict) -> bool:
                 possible_conditions = []
                 for condition in [f'{x} = {y}' for x in result['LHS'] for y in result['RHS']]:
                     result['Filter'] = condition
-                    if parse_expr_node(query['where'], result):
+                    if expN_parsing(query['where'], result):
                         possible_conditions.append(condition)
                 assert len(possible_conditions) <= 1, "There are more than one possible conditions"
                 if len(possible_conditions) == 1:
                     return True
             else:
-                if parse_expr_node(query['where'], result):
+                if expN_parsing(query['where'], result):
                     return True
         
         if type(query['from']) is dict and type(query['from']['value']) is dict:
@@ -374,7 +376,7 @@ def find_query_node(query: dict, result: dict) -> bool:
         
         # filter exixts
         if result['Filter'] != '' and 'where' in query:
-            parse_expr_node(query['where'], result)
+            expN_parsing(query['where'], result)
         return annotated
 
     return False
