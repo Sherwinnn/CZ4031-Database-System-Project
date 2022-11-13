@@ -388,33 +388,18 @@ def process(conn, query):
     #process input by getting query execution plan and parsing query
     #outputs annotated query plan
     query = preprocess_query(query)
+    print("Query is :" + query)
     current = conn.cursor()
     plan = get_query_execution_plan(current, query)
     parsed_query = parse(query)
-    
+
     preprocess_query_tree(current, parsed_query)
     traverse_query(parsed_query, plan[0][0]['Plan'])
-    
+
     result = []
     reparse_query(result, parsed_query)
-
-    try:
-        preprocess_query_tree(current, parsed_query)
-        traverse_query(parsed_query, plan[0][0]['Plan'])
-        result = []
-        reparse_query(result, parsed_query)
-
-    except Exception as e:
-        logging.error(e, exc_info=True)
-        logging.debug(pformat(query))
-        logging.debug(pformat(parsed_query))
-        logging.debug(pformat(plan))
-        raise e
-    else:
-        print('below is parsed query: \n')
-        pprint(parsed_query, sort_dicts=False)
-        print('\n -----Below is the initially generated Query Execution Plan----- \n')
-        pprint(result)
+    print("THIS IS RESULT")
+    print(result)
 
     # getting AQP
     try:
@@ -433,16 +418,21 @@ def process(conn, query):
             updated_results = compare_results(result, AQP_results)
             print('\n -----Updated annotations with comparisons for generated QEP vs AQP:----- \n')
             pprint(updated_results)
+            
     except Exception as e:
         raise e
     else:
         print('--DONE--')
         
-    print()
-
-    current.close()
+    print("___________________________________________________________________")
     
-    return [q['statement'] for q in result], [q['annotation'] for q in result],[q['annotation'] for q in AQP_results]
+    print(AQP_results)
+
+    if not AQP_results:
+        return [q['statement'] for q in result], [q['annotation'] for q in result],0
+    
+    else:
+        return [q['statement'] for q in result], [q['annotation'] for q in result],[q['annotation'] for q in AQP_results]
 
 def reparse_without_expand(statement_dict):
     #retrieve annotations and format the query 
@@ -1006,6 +996,7 @@ def get_used_node_types(plan):
             for item in curr_plan['Plans']:
                 # add children plans to the child queue
                 child_plans.put(item)
+                #rint(child_plans.put(item))
                 parent_plans.put(curr_node)
 
     return nodes_used
@@ -1387,7 +1378,7 @@ def generate_aqp_three(cur, query, nodes_used, plan):
 
 def main():
    # logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
-    conn = init_conn("TPC-H")
+    conn = init_conn("postgres")
    # conn = init_conn('mydatabase')
     cur = conn.cursor()
    
@@ -1395,22 +1386,22 @@ def main():
 
     queries = [
         # Test cases
-         "SELECT * FROM nation, region WHERE nation.n_regionkey = region.r_regionkey and nation.n_regionkey = 0;",
-         "SELECT * FROM nation, region WHERE nation.n_regionkey < region.r_regionkey and nation.n_regionkey = 0;",
-         "SELECT * FROM nation;",
-         'select N_NATIONKey, "n_regionkey" from NATion;',
-         'select N_NATIONKey from NATion;',
+         #"SELECT * FROM nation, region WHERE nation.n_regionkey = region.r_regionkey and nation.n_regionkey = 0;",
+        #  "SELECT * FROM nation, region WHERE nation.n_regionkey < region.r_regionkey and nation.n_regionkey = 0;",
+        #  "SELECT * FROM nation;",
+        #  'select N_NATIONKey, "n_regionkey" from NATion;',
+        #  'select N_NATIONKey from NATion;',
         "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey = n2.n_regionkey;",
-        "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey < n2.n_regionkey;",
-        "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey <> n2.n_regionkey;",
+        # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey < n2.n_regionkey;",
+        # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey <> n2.n_regionkey;",
         "SELECT * FROM nation as n WHERE 0 < n.n_regionkey  and n.n_regionkey < 3;",
         "SELECT * FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
-        "SELECT n.n_nationkey FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
-        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_nationkey > 7 and n.n_nationkey < 15) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        "SELECT * FROM customer as c, nation as n, region as r WHERE n.n_nationkey > 7 and n.n_nationkey < 15 and  n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey<5) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
-        "SELECT  DISTINCT c.c_custkey FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        # "SELECT n.n_nationkey FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
+        # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_nationkey > 7 and n.n_nationkey < 15) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        # "SELECT * FROM customer as c, nation as n, region as r WHERE n.n_nationkey > 7 and n.n_nationkey < 15 and  n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey<5) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        # "SELECT  DISTINCT c.c_custkey FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
 
         # # http://www.qdpma.com/tpch/TPCH100_Query_plans.html
 #         """SELECT l.L_RETURNFLAG, l.L_LINESTAATUS, SUM(l.L_QUANTITY) AS SUM_QTY,
@@ -1519,7 +1510,7 @@ def main():
             #     print('\n -----Updated annotations with comparisons for generated QEP vs AQP:----- \n')
             #     pprint(updated_results)
         print()
-
+    print(AQP_results)
     cur.close()
 
 

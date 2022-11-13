@@ -153,6 +153,8 @@ class MyWindow(QMainWindow):
                 # self.result.queryOutput.setText('\n'.join(query))
                 
                 #Setting Query Number Bulletpoints
+                print("===================This is Query")
+                print(query)
                 output=''
                 anno = ''
                 anno2 =''
@@ -162,9 +164,10 @@ class MyWindow(QMainWindow):
                 
                 for a,b in enumerate(annotation):
                      anno = anno + (''.join(str(a+1)+ '. ' + str(b))) + '\n'
-                                 
-                for a,b in enumerate(annotation2):
-                     anno2 = anno2 + (''.join(str(a+1)+ '. ' + str(b))) + '\n'
+
+                if annotation2 !=0:                 
+                    for a,b in enumerate(annotation2):
+                        anno2 = anno2 + (''.join(str(a+1)+ '. ' + str(b))) + '\n'
                        
                 print(output)
                 print(anno)
