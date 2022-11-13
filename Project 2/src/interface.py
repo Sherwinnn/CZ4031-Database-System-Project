@@ -167,6 +167,8 @@ class MyWindow(QMainWindow):
                 if annotation2 !=0:                 
                     for a,b in enumerate(annotation2):
                         anno2 = anno2 + (''.join(str(a+1)+ '. ' + str(b))) + '\n'
+                else:
+                    anno2 = 'No AQP Generated'
                        
                 print(output)
                 print(anno)

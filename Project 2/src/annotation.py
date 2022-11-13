@@ -398,8 +398,7 @@ def process(conn, query):
 
     result = []
     reparse_query(result, parsed_query)
-    print("THIS IS RESULT")
-    print(result)
+    
 
     # getting AQP
     try:
@@ -424,9 +423,6 @@ def process(conn, query):
     else:
         print('--DONE--')
         
-    print("___________________________________________________________________")
-    
-    print(AQP_results)
 
     if not AQP_results:
         return [q['statement'] for q in result], [q['annotation'] for q in result],0
@@ -1391,13 +1387,13 @@ def main():
         #  "SELECT * FROM nation;",
         #  'select N_NATIONKey, "n_regionkey" from NATion;',
         #  'select N_NATIONKey from NATion;',
-        "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey = n2.n_regionkey;",
+        # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey = n2.n_regionkey;",
         # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey < n2.n_regionkey;",
         # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey <> n2.n_regionkey;",
-        "SELECT * FROM nation as n WHERE 0 < n.n_regionkey  and n.n_regionkey < 3;",
-        "SELECT * FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
+        # "SELECT * FROM nation as n WHERE 0 < n.n_regionkey  and n.n_regionkey < 3;",
+        # "SELECT * FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
         # "SELECT n.n_nationkey FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
-        # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_nationkey > 7 and n.n_nationkey < 15) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_nationkey > 7 and n.n_nationkey < 15) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
         # "SELECT * FROM customer as c, nation as n, region as r WHERE n.n_nationkey > 7 and n.n_nationkey < 15 and  n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
         # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
         # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey<5) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
@@ -1510,7 +1506,7 @@ def main():
             #     print('\n -----Updated annotations with comparisons for generated QEP vs AQP:----- \n')
             #     pprint(updated_results)
         print()
-    print(AQP_results)
+    
     cur.close()
 
 
