@@ -1,9 +1,62 @@
 from PyQt5 import QtWidgets
+from PyQt5 import QtGui
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 import sys
-from annotation import process, init_conn
+from annotation import *
+
+#class for popup result window
+class ResultWindow(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowIcon(QtGui.QIcon('greendot.png'))
+        self.setWindowTitle('Your Query Result!')
+        self.setGeometry(27,290,1770,720)
+
+        self.query = QLabel(self)
+        self.lbloutput = QLabel(self)
+        self.lblannotate = QLabel(self)
+        self.lblAQP = QLabel(self)
+         
+        self.queryOutput = ScrollableLabel(self)
+        self.queryAnnotate = ScrollableLabel(self)
+        self.queryAQP = ScrollableLabel(self)
+
+        self.query.move(25, 20)
+        self.query.resize(1400, 100)
+        self.query.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.query.setFont(QFont('Arial', 14))
+
+        self.lbloutput.move(25,117)
+        self.lbloutput.setText("QEP Tokenize Components:")
+        self.lbloutput.setFont(QFont('Arial', 14))
+
+        self.lblannotate.move(535,117)
+        self.lblannotate.setText("QEP Corresponding Annotations:")
+        self.lblannotate.setFont(QFont('Arial', 14))
+
+        self.lblAQP.move(1145,117)
+        self.lblAQP.setText("AQP:")
+        self.lblAQP.setFont(QFont('Arial', 14))
+
+        self.queryOutput.move(25, 150)
+        self.queryOutput.resize(500, 560)
+        self.queryOutput.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.queryOutput.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+
+        self.queryAnnotate.move(535, 150)
+        self.queryAnnotate.resize(600, 560)
+        self.queryAnnotate.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.queryAnnotate.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+
+        self.queryAQP.move(1145, 150)
+        self.queryAQP.resize(600, 560)
+        self.queryAQP.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.queryAQP.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+
+    def displayInfo(self):
+        self.show()
 
 #class for scrollable label
 class ScrollableLabel(QScrollArea):
@@ -36,9 +89,10 @@ class MyWindow(QMainWindow):
     def __init__(self):
         #set windows
         super(MyWindow, self).__init__()
-        self.setGeometry(1,42,1470,920)
+        self.setWindowIcon(QtGui.QIcon('cutecat.png'))
+        self.setGeometry(1,42,1070,350)
         self.setWindowTitle("CZ4031 Project 2")
-
+        self.result = ResultWindow()
         #textbox for query
         self.queryTextbox = QTextEdit(self)
         #label to indicate which db name is the app currently connected to
@@ -47,10 +101,6 @@ class MyWindow(QMainWindow):
         self.dbTextbox = QTextEdit(self)
         # Button to run the algorithm
         self.sendButton = QtWidgets.QPushButton(self)
-        #output text for query
-        self.queryOutput = ScrollableLabel(self)
-        #output text for annotation
-        self.queryAnnotate = ScrollableLabel(self)
         #error message box
         self.error_dialog = QtWidgets.QErrorMessage()
 
@@ -61,45 +111,29 @@ class MyWindow(QMainWindow):
         self.conn = None
         self.db = ''
 
+
     #initialise UI method
     def initUI(self):
 
         self.queryTextbox.move(25, 20)
-        self.queryTextbox.resize(800, 300)
+        self.queryTextbox.resize(600, 300)
         self.queryTextbox.setPlaceholderText('Enter SQL Query Here:')
         self.queryTextbox.setFont(QFont('Arial', 14))
 
-        self.dbLabel.move(840, 20)
-        self.dbLabel.resize(500, 117)
+        self.dbLabel.move(640, 20)
+        self.dbLabel.resize(400, 117)
         self.dbLabel.setText(f"Current DB Name: ")
 
-        self.dbTextbox.move(840, 147)
-        self.dbTextbox.resize(500, 50)
+        self.dbTextbox.move(640, 147)
+        self.dbTextbox.resize(400, 50)
         self.dbTextbox.setPlaceholderText('Enter Database Name Here:')
         self.dbTextbox.setFont(QFont('Arial', 14))
 
-        self.sendButton.move(840, 220)
-        self.sendButton.resize(500, 100)
+        self.sendButton.move(640, 220)
+        self.sendButton.resize(400, 100)
         self.sendButton.setText("Send Query")
         self.sendButton.setFont(QFont('Arial', 14))
         self.sendButton.clicked.connect(self.onClick)
-     
-        self.queryOutput.move(25, 333)
-        self.queryOutput.resize(500, 567)
-        self.queryOutput.setText("Output Query here:")
-        self.queryOutput.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.queryOutput.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-
-        self.queryAnnotate.move(535, 333)
-        self.queryAnnotate.resize(900, 567)
-        self.queryAnnotate.setText("Annotation here:")
-        self.queryAnnotate.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-        self.queryAnnotate.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
-
-        self.queryOutput.verticalScrollBar().valueChanged.connect(
-            self.queryAnnotate.verticalScrollBar().setValue)
-        self.queryAnnotate.verticalScrollBar().valueChanged.connect(
-            self.queryOutput.verticalScrollBar().setValue)
 
     #click send button method
     def onClick(self):
@@ -114,17 +148,43 @@ class MyWindow(QMainWindow):
         #process query
         if self.conn is not None:
             try:
-                query, annotation = process(self.conn, self.queryTextbox.toPlainText())
-                self.queryOutput.setText('\n'.join(query))
-                self.queryAnnotate.setText('\n'.join(annotation))
+                query, annotation,annotation2= process(self.conn, self.queryTextbox.toPlainText())
+                #print(annotation2)
+                # self.result.queryOutput.setText('\n'.join(query))
+                
+                #Setting Query Number Bulletpoints
+                output=''
+                anno = ''
+                anno2 =''
+                a = 1
+                for a,b in enumerate(query):
+                    output =  output + (''.join(str(a+1)+ '. ' + str(b))) + '\n'            
+                
+                for a,b in enumerate(annotation):
+                     anno = anno + (''.join(str(a+1)+ '. ' + str(b))) + '\n'
+                                 
+                for a,b in enumerate(annotation2):
+                     anno2 = anno2 + (''.join(str(a+1)+ '. ' + str(b))) + '\n'
+                       
+                print(output)
+                print(anno)
+                print(anno2)
+                self.result.queryOutput.setText(output)
+                self.result.queryAnnotate.setText(anno)
+                self.result.queryAQP.setText(anno2)
+                #self.result.queryAQP.setText(TODO)
+                #query = preprocess_query_string(query)
+
+                q = "Query Entered: " + self.queryTextbox.toPlainText()
+                self.result.query.setText(q)
+                self.result.displayInfo()
             except Exception as e:
                 self.error_dialog.showMessage(f"ERROR - {e}")
-
+    
 def window():
     app = QApplication(sys.argv)
-    win = MyWindow()
-
-    win.show()
+    demo = MyWindow()
+    demo.show()
     sys.exit(app.exec_())
 
 def main():

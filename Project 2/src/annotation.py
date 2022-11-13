@@ -397,8 +397,52 @@ def process(conn, query):
     
     result = []
     reparse_query(result, parsed_query)
+
+    try:
+        preprocess_query_tree(current, parsed_query)
+        traverse_query(parsed_query, plan[0][0]['Plan'])
+        result = []
+        reparse_query(result, parsed_query)
+
+    except Exception as e:
+        logging.error(e, exc_info=True)
+        logging.debug(pformat(query))
+        logging.debug(pformat(parsed_query))
+        logging.debug(pformat(plan))
+        raise e
+    else:
+        print('below is parsed query: \n')
+        pprint(parsed_query, sort_dicts=False)
+        print('\n -----Below is the initially generated Query Execution Plan----- \n')
+        pprint(result)
+
+    # getting AQP
+    try:
+        nodes_used = get_used_node_types(plan[0][0]['Plan'])
+        print('\n -----QEP Operators Used-----  \n', nodes_used)
+        AQP_results = generate_aqp_three(current, query, nodes_used, plan)
+        if AQP_results == 0:
+            print("\n => There is no AQP available for this particular query ")
+            print('\n -----Below is the updated generated Query Execution Plan----- \n')
+            updated_results = add_join_explanations(result)
+            pprint(updated_results)
+        else:
+            print('\n -----Below is the generated Alternate Query Plan----- \n')
+            print(AQP_results)
+            #print('\n -----AQP Operators Used:----- \n ', aqp_nodes_used)
+            updated_results = compare_results(result, AQP_results)
+            print('\n -----Updated annotations with comparisons for generated QEP vs AQP:----- \n')
+            pprint(updated_results)
+    except Exception as e:
+        raise e
+    else:
+        print('--DONE--')
+        
+    print()
+
+    current.close()
     
-    return [q['statement'] for q in result], [q['annotation'] for q in result]
+    return [q['statement'] for q in result], [q['annotation'] for q in result],[q['annotation'] for q in AQP_results]
 
 def reparse_without_expand(statement_dict):
     #retrieve annotations and format the query 
