@@ -9,25 +9,25 @@ from mo_sql_parsing import parse, format
 
 from preprocessing import preprocess_query, preprocess_query_tree
 
-# did not change (might need to change .env file if making changes)
+# Preset PostgreSQL's authentication information under .env file first
 def import_config():
     load_dotenv()
-    db_uname = os.getenv("DB_UNAME")
-    db_pass = os.getenv("DB_PASS")
-    db_host = os.getenv("DB_HOST")
-    db_port = os.getenv("DB_PORT")
+    db_uname = os.getenv("Database_Username")
+    db_pass = os.getenv("Database_Password")
+    db_host = os.getenv("Host_Name")
+    db_port = os.getenv("Port_Number")
     return  db_uname, db_pass, db_host, db_port
 
-# did not change
-def open_db(db_name, db_uname, db_pass, db_host, db_port):
+# Setting up the PostgreSQL database
+def db_setup(db_name, db_uname, db_pass, db_host, db_port):
     conn = psycopg2.connect(database=db_name, user=db_uname, password=db_pass, host=db_host, port=db_port)
     conn.set_session(readonly=True, autocommit=True)
     return conn
 
-# did not change
-def init_conn(db_name):
+# Setting up the authentication and connection for PostgreSQL database 
+def conn_setup(db_name):
     db_uname, db_pass, db_host, db_port = import_config()
-    conn = open_db(db_name, db_uname, db_pass, db_host, db_port)
+    conn = db_setup(db_name, db_uname, db_pass, db_host, db_port)
     return conn
 
 def get_query_execution_plan(cursor, sql_query):
@@ -1374,26 +1374,27 @@ def generate_aqp_three(cur, query, nodes_used, plan):
 
 def main():
    # logging.basicConfig(filename='log/debug.log', filemode='w', level=logging.DEBUG)
-    conn = init_conn("postgres")
-   # conn = init_conn('mydatabase')
+    conn = conn_setup("postgres")
+   # conn = conn_setup('mydatabase')
     cur = conn.cursor()
    
     print('connected')
 
     queries = [
         # Test cases
-         #"SELECT * FROM nation, region WHERE nation.n_regionkey = region.r_regionkey and nation.n_regionkey = 0;",
+
+        "SELECT * FROM nation, region WHERE nation.n_regionkey = region.r_regionkey and nation.n_regionkey = 0;",
         #  "SELECT * FROM nation, region WHERE nation.n_regionkey < region.r_regionkey and nation.n_regionkey = 0;",
         #  "SELECT * FROM nation;",
         #  'select N_NATIONKey, "n_regionkey" from NATion;',
         #  'select N_NATIONKey from NATion;',
-        # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey = n2.n_regionkey;",
+         "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey = n2.n_regionkey;",
         # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey < n2.n_regionkey;",
         # "SELECT * FROM nation as n1, nation as n2 WHERE n1.n_regionkey <> n2.n_regionkey;",
         # "SELECT * FROM nation as n WHERE 0 < n.n_regionkey  and n.n_regionkey < 3;",
         # "SELECT * FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
         # "SELECT n.n_nationkey FROM nation as n WHERE 0 < n.n_nationkey  and n.n_nationkey < 30;",
-        "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_nationkey > 7 and n.n_nationkey < 15) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
+        #"SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_nationkey > 7 and n.n_nationkey < 15) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
         # "SELECT * FROM customer as c, nation as n, region as r WHERE n.n_nationkey > 7 and n.n_nationkey < 15 and  n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
         # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey=0) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",
         # "SELECT * FROM customer as c, (SELECT * FROM nation as n where n.n_regionkey<5) as n, region as r WHERE n.n_regionkey = r.r_regionkey  and c.c_nationkey = n.n_nationkey;",

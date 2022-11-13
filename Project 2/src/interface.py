@@ -140,7 +140,7 @@ class MyWindow(QMainWindow):
         #db connection
         if self.db != self.dbTextbox.toPlainText():
             try:
-                self.conn = init_conn(self.dbTextbox.toPlainText())
+                self.conn = conn_setup(self.dbTextbox.toPlainText())
                 self.db = self.dbTextbox.toPlainText()
                 self.dbLabel.setText(f"Current DB Name: {self.db}")
             except Exception as e:
