@@ -1,10 +1,30 @@
 import logging
 import typing
 
-
-def preprocess_query_string(query):
+# used in annotation
+def preprocess_query(query):
     return ' '.join([word.lower() if word[0] != '"' and word[0] != "'" else word for word in query.split()])
 
+# used in annotation
+def preprocess_query_tree(cur, query_tree):
+    rel_list = []
+    col_rel_dict = {}
+    collect_relation_list(query_tree, rel_list)
+    logging.debug(f'rel_list={rel_list}')
+    
+    # obtain information about the column
+    for relation in rel_list:
+        cur.execute(f"SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{relation}'")
+        col_list = cur.fetchall()
+        for column in col_list:
+            if column in col_rel_dict:
+                col_rel_dict[column[0]].append(relation)
+            else:
+                col_rel_dict[column[0]] = [relation]
+    logging.debug(f'col_rel_dict={col_rel_dict}')
+
+    # rename when necessary
+    rename_column(query_tree, col_rel_dict)
 
 def collect_relation_list(query_tree, rel_list):
     if type(query_tree['from']) is str:
@@ -17,54 +37,34 @@ def collect_relation_list(query_tree, rel_list):
         else:
             raise NotImplementedError(f"{query_tree['from']['value']}")
     elif type(query_tree['from']) is list:
-        for rel in query_tree['from']:
-            if type(rel) is str:
-                rel_list.append(rel)
-            elif type(rel) is dict:
-                if type(rel['value']) is str:
-                    rel_list.append(rel['value'])
-                elif type(rel['value']) is dict:
-                    collect_relation_list(rel['value'], rel_list)
+        for relation in query_tree['from']:
+            if type(relation) is str:
+                rel_list.append(relation)
+            elif type(relation) is dict:
+                if type(relation['value']) is str:
+                    rel_list.append(relation['value'])
+                elif type(relation['value']) is dict:
+                    collect_relation_list(relation['value'], rel_list)
                 else:
-                    raise NotImplementedError(f"{rel['value']}")
+                    raise NotImplementedError(f"{relation['value']}")
 
 
-def rename_column_to_full_name(query_tree: typing.Union[dict, list], column_relation_dict: dict):
+def rename_column(query_tree: typing.Union[dict, list], col_rel_dict: dict):
     if type(query_tree) is dict:
         for key, val in query_tree.items():
             if key in ['literal', 'interval']:
                 continue
             if type(val) is str:
-                if '.' not in val and val in column_relation_dict and len(column_relation_dict[val]) == 1:
-                    query_tree[key] = f'{column_relation_dict[val][0]}.{val}'
+                if '.' not in val and val in col_rel_dict and len(col_rel_dict[val]) == 1:
+                    query_tree[key] = f'{col_rel_dict[val][0]}.{val}'
             elif type(val) not in [int, float]:
-                rename_column_to_full_name(val, column_relation_dict)
+                rename_column(val, col_rel_dict)
     elif type(query_tree) is list:
         for i, v in enumerate(query_tree):
             if type(v) is str:
-                if '.' not in v and v in column_relation_dict and len(column_relation_dict[v]) == 1:
-                    query_tree[i] = f'{column_relation_dict[v][0]}.{v}'
+                if '.' not in v and v in col_rel_dict and len(col_rel_dict[v]) == 1:
+                    query_tree[i] = f'{col_rel_dict[v][0]}.{v}'
             elif type(v) not in [int, float]:
-                rename_column_to_full_name(v, column_relation_dict)
+                rename_column(v, col_rel_dict)
     else:
         raise NotImplementedError(f"{query_tree}")
-
-
-def preprocess_query_tree(cur, query_tree):
-    rel_list = []
-    column_relation_dict = {}
-    collect_relation_list(query_tree, rel_list)
-    logging.debug(f'rel_list={rel_list}')
-    # Collect column info
-    for rel in rel_list:
-        cur.execute(f"SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{rel}'")
-        res = cur.fetchall()
-        # pprint(res)
-        for col in res:
-            if col in column_relation_dict:
-                column_relation_dict[col[0]].append(rel)
-            else:
-                column_relation_dict[col[0]] = [rel]
-    logging.debug(f'column_relation_dict={column_relation_dict}')
-    # For every column, if no dot, try to find in dict, if multiple relation raise exception, else rename
-    rename_column_to_full_name(query_tree, column_relation_dict)

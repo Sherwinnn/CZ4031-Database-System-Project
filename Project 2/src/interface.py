@@ -149,12 +149,29 @@ class MyWindow(QMainWindow):
         if self.conn is not None:
             try:
                 query, annotation,annotation2= process(self.conn, self.queryTextbox.toPlainText())
-                print("IS ERROR HERE")
                 #print(annotation2)
+                # self.result.queryOutput.setText('\n'.join(query))
                 
-                self.result.queryOutput.setText('\n'.join(query))
-                self.result.queryAnnotate.setText('\n'.join(annotation))
-                self.result.queryAQP.setText('\n'.join(annotation2))
+                #Setting Query Number Bulletpoints
+                output=''
+                anno = ''
+                anno2 =''
+                a = 1
+                for a,b in enumerate(query):
+                    output =  output + (''.join(str(a+1)+ '. ' + str(b))) + '\n'            
+                
+                for a,b in enumerate(annotation):
+                     anno = anno + (''.join(str(a+1)+ '. ' + str(b))) + '\n'
+                                 
+                for a,b in enumerate(annotation2):
+                     anno2 = anno2 + (''.join(str(a+1)+ '. ' + str(b))) + '\n'
+                       
+                print(output)
+                print(anno)
+                print(anno2)
+                self.result.queryOutput.setText(output)
+                self.result.queryAnnotate.setText(anno)
+                self.result.queryAQP.setText(anno2)
                 #self.result.queryAQP.setText(TODO)
                 #query = preprocess_query_string(query)
 
