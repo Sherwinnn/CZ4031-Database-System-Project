@@ -508,7 +508,6 @@ def repLit(value: any):
     else:
         raise NotImplementedError(f"literal type - {value}")
 
-#to do: make more edits
 def reparseArith(statement_dict: dict, symbol_op: str):
     temp_list = []
 
